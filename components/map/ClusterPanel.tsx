@@ -41,7 +41,7 @@ export function ClusterPanel({ clusters, selectedClusterKey, onSelect }: Cluster
 
   return (
     <Card asChild>
-      <aside className="soft-card rounded-[var(--radius)] p-4 sm:p-6">
+      <aside className="soft-card min-w-0 max-w-full rounded-[var(--radius)] p-4 sm:p-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-bold text-app-text">{t("map.hotZones")}</h2>
         <span className="rounded-full bg-app-surfaceStrong px-2.5 py-1 text-xs font-semibold text-app-text">
@@ -70,7 +70,7 @@ export function ClusterPanel({ clusters, selectedClusterKey, onSelect }: Cluster
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className={`text-sm font-semibold ${selected ? "text-white" : "text-app-text"}`}>
                         {formatDistrict(cluster.district, language)} | {formatCategory(cluster.category, language)}
                       </p>

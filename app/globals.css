@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Material Symbols Rounded";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/material-symbols-rounded-500.ttf") format("truetype");
+}
+
 :root {
   --font-sans:
     "SF Pro Display",
@@ -188,7 +196,7 @@ textarea {
 
   .material-symbols-rounded {
     font-family: "Material Symbols Rounded";
-    font-weight: 400;
+    font-weight: 500;
     font-style: normal;
     font-size: 20px;
     line-height: 1;

@@ -91,6 +91,19 @@ function createLocationMarker() {
   return marker;
 }
 
+function preventBrowserZoomOnMap(container: HTMLElement) {
+  const handleWheel = (event: WheelEvent) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+  };
+
+  container.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+
+  return () => {
+    container.removeEventListener("wheel", handleWheel, { capture: true });
+  };
+}
+
 export function ReportLocationPicker({ district, value, onChange }: ReportLocationPickerProps) {
   const { language, t } = useI18n();
   const key = process.env.NEXT_PUBLIC_2GIS_API_KEY || "";
@@ -130,6 +143,11 @@ export function ReportLocationPicker({ district, value, onChange }: ReportLocati
   useEffect(() => {
     fallbackCenterRef.current = fallbackCenter;
   }, [fallbackCenter]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    return preventBrowserZoomOnMap(containerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!hasMapKey || !containerRef.current) return;

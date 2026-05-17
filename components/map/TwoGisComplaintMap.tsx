@@ -357,6 +357,19 @@ function didDataFiltersChange(previous: FilterState | null, next: FilterState) {
   );
 }
 
+function preventBrowserZoomOnMap(container: HTMLElement) {
+  const handleWheel = (event: WheelEvent) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+  };
+
+  container.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+
+  return () => {
+    container.removeEventListener("wheel", handleWheel, { capture: true });
+  };
+}
+
 export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMapProps) {
   const { language, t } = useI18n();
   const key = process.env.NEXT_PUBLIC_2GIS_API_KEY || "";
@@ -537,6 +550,11 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   }, [clusters, filteredComplaints, selectedClusterKey, selectedComplaintId]);
 
   useEffect(() => {
+    if (!containerRef.current) return;
+    return preventBrowserZoomOnMap(containerRef.current);
+  }, []);
+
+  useEffect(() => {
     if (!hasMapKey || !containerRef.current) return;
 
     let isCancelled = false;
@@ -646,7 +664,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   }, [handleSelectCluster, handleSelectComplaint, layeredPoints, mapReady]);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4 overflow-hidden">
       <MapFilters
         values={filter}
         districts={[...DISTRICTS]}
@@ -682,9 +700,9 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
         <Card className="soft-card-muted p-4 text-sm text-app-textMuted">{t("map.empty")}</Card>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
-        <section className="space-y-4">
-          <Card className="soft-card relative z-0 isolate overflow-hidden p-4">
+      <div className="grid min-w-0 max-w-full gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <section className="min-w-0 space-y-4">
+          <Card className="soft-card relative z-0 isolate min-w-0 max-w-full overflow-hidden p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs font-semibold text-app-text">
                 {filter.clusterMode ? t("map.clustersOn") : t("map.clustersOff")}
@@ -708,7 +726,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
 
             <div
               ref={containerRef}
-              className="relative z-0 h-[340px] w-full overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain] sm:h-[420px] lg:h-[520px] xl:h-[560px]"
+              className="relative z-0 h-[340px] w-full min-w-0 max-w-full overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain] sm:h-[420px] lg:h-[520px] xl:h-[560px]"
             >
               {!hasMapKey ? (
                 <div className="flex h-full items-center justify-center p-4 text-center text-sm text-app-textMuted">
@@ -784,7 +802,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
           </Card>
         </section>
 
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           <ClusterPanel
             clusters={clusters}
             selectedClusterKey={selectedClusterKey}
