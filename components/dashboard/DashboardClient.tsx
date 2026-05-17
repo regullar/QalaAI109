@@ -72,13 +72,13 @@ export function DashboardClient({ email, userId, role, phone, complaints }: Dash
 
   return (
     <div className="section-wrap section-band space-y-8">
-      <section className="flex flex-wrap items-end justify-between gap-4">
+      <section className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <p className="eyebrow">Личный кабинет</p>
           <h1 className="display-title mt-3">Мои обращения</h1>
         </div>
         {role === "admin" ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button asChild variant="unstyled" size="unstyled" className="btn-secondary min-h-10 px-4 py-2">
               <Link href="/admin">Админ панель</Link>
             </Button>
@@ -90,7 +90,7 @@ export function DashboardClient({ email, userId, role, phone, complaints }: Dash
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[minmax(280px,0.8fr)_1.2fr]">
-        <Card className="soft-card p-6">
+        <Card className="soft-card p-4 sm:p-6">
           <h2 className="text-lg font-bold text-app-text">Профиль</h2>
           <div className="mt-5 space-y-4">
             <Info label="Email">{email || "-"}</Info>
@@ -124,7 +124,7 @@ export function DashboardClient({ email, userId, role, phone, complaints }: Dash
           {profileError ? <p className="mt-4 text-sm font-semibold text-semantic-down">{profileError}</p> : null}
         </Card>
 
-        <Card className="soft-card p-6">
+        <Card className="soft-card p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-app-text">Мои жалобы</h2>

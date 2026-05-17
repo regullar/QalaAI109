@@ -25,19 +25,19 @@ export function AiPreviewCard({ data }: AiPreviewCardProps) {
 
   return (
     <Card asChild>
-      <section className="dark-card p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <section className="dark-card p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-white">
             <Sparkles size={13} strokeWidth={2} />
             {language === "kk" ? "AI-талдау" : "AI-анализ"}
           </p>
-          <h2 className="mt-4 text-[24px] font-normal tracking-[-0.03em] text-white">{data.title}</h2>
-          <p className="mt-3 max-w-[62ch] text-[15px] leading-7 text-white">
+          <h2 className="mt-4 text-[22px] font-normal tracking-[-0.03em] text-white sm:text-[24px]">{data.title}</h2>
+          <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-white sm:leading-7">
             {data.summary}
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${PRIORITY_BADGE_STYLES[data.priority]}`}>
+        <span className={`w-fit rounded-full border px-3 py-1 text-[12px] font-semibold ${PRIORITY_BADGE_STYLES[data.priority]}`}>
           {t(PRIORITY_TRANSLATION_KEYS[data.priority])}
         </span>
       </div>
@@ -87,9 +87,9 @@ export function AiPreviewCard({ data }: AiPreviewCardProps) {
         </div>
       ) : null}
 
-      <div className="mt-6 rounded-[var(--radius)] border border-white/18 bg-black/35 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="mt-6 rounded-[var(--radius)] border border-white/18 bg-black/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
         <p className="eyebrow text-white/88">{t("preview.appeal")}</p>
-        <p className="mt-3 rounded-[calc(var(--radius)-6px)] bg-white/[0.07] px-4 py-3 text-sm leading-7 text-white">
+        <p className="mt-3 rounded-[calc(var(--radius)-6px)] bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white sm:leading-7">
           {data.appealText}
         </p>
       </div>

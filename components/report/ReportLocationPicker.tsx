@@ -223,7 +223,7 @@ export function ReportLocationPicker({ district, value, onChange }: ReportLocati
 
   return (
     <Card className="soft-card overflow-hidden p-0">
-      <div className="border-b border-app-border px-5 py-4">
+      <div className="border-b border-app-border px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="label">{t("report.location")}</p>
@@ -252,7 +252,7 @@ export function ReportLocationPicker({ district, value, onChange }: ReportLocati
         ) : (
           <div
             ref={containerRef}
-            className="h-[280px] w-full overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)]"
+            className="h-[220px] w-full overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] sm:h-[260px] lg:h-[280px]"
           >
             {isMapLoading ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-app-textMuted">

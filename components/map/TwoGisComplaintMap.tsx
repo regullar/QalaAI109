@@ -470,7 +470,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
             </div>
             <div
               ref={containerRef}
-              className="h-[560px] w-full touch-none overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain]"
+              className="h-[340px] w-full touch-none overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain] sm:h-[420px] lg:h-[520px] xl:h-[560px]"
             >
               {!hasMapKey ? (
                 <div className="flex h-full items-center justify-center p-4 text-center text-sm text-app-textMuted">
@@ -499,7 +499,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
           </Card>
 
           <Card asChild>
-            <section className="soft-card rounded-[var(--radius)] p-6">
+            <section className="soft-card rounded-[var(--radius)] p-4 sm:p-6">
             <h2 className="text-base font-bold text-app-text">{t("map.selected")}</h2>
             {selectedComplaint ? (
               <div className="mt-3 space-y-3 text-sm">
@@ -554,7 +554,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
           />
 
           <Card asChild>
-            <section className="soft-card rounded-[var(--radius)] p-6">
+            <section className="soft-card rounded-[var(--radius)] p-4 sm:p-6">
             <h3 className="text-base font-bold text-app-text">{t("map.summary")}</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">

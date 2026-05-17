@@ -18,7 +18,7 @@ export function FeatureCards() {
   const { language, t } = useI18n();
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6 sm:space-y-8">
       <div className="max-w-3xl">
         <p className="eyebrow">{language === "kk" ? "Платформа мүмкіндіктері" : "Возможности платформы"}</p>
         <h2 className="section-title mt-3">
@@ -32,15 +32,15 @@ export function FeatureCards() {
             : "Платформа помогает быстрее разбирать обращения, видеть повторяющиеся зоны и передавать проблему нужной службе."}
         </p>
       </div>
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {features.map((feature) => (
           <Card key={feature.title} asChild>
-            <article className="soft-card p-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-app-surfaceStrong text-brand-600">
+            <article className="soft-card p-5 sm:p-8">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-app-surfaceStrong text-brand-600 sm:h-12 sm:w-12">
                 <MaterialIcon name={feature.icon} className="text-[20px]" />
               </div>
-              <h3 className="mt-6 text-[20px] font-semibold tracking-[-0.02em] text-app-text">{t(feature.title)}</h3>
-              <p className="mt-3 text-[15px] leading-7 text-app-textMuted">{t(feature.description)}</p>
+              <h3 className="mt-5 text-[19px] font-semibold tracking-[-0.02em] text-app-text sm:mt-6 sm:text-[20px]">{t(feature.title)}</h3>
+              <p className="mt-3 text-[15px] leading-6 text-app-textMuted sm:leading-7">{t(feature.description)}</p>
             </article>
           </Card>
         ))}

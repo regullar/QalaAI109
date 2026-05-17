@@ -175,9 +175,9 @@ export function ComplaintForm() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] xl:gap-6">
       <Card asChild>
-        <section className="soft-card overflow-visible p-6 sm:p-8">
+        <section className="soft-card overflow-visible p-4 sm:p-6 xl:p-8">
         <div className="grid gap-5">
           <label className="grid gap-2" htmlFor={descriptionId}>
             <span className="label">{t("report.description")}</span>
@@ -242,7 +242,7 @@ export function ComplaintForm() {
             onChange={updateLocation}
           />
 
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap">
             {!preview ? (
               <Button
                 variant="unstyled"
@@ -299,11 +299,11 @@ export function ComplaintForm() {
           <AiPreviewCard data={preview} />
         ) : (
           <Card asChild>
-            <section className="dark-card p-6">
+            <section className="dark-card p-5 sm:p-6">
             <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white">
               {isKazakh ? "AI-талдау" : "AI-анализ"}
             </p>
-            <h2 className="mt-4 text-[28px] font-normal tracking-[-0.03em] text-white">
+              <h2 className="mt-4 text-[24px] font-normal tracking-[-0.03em] text-white sm:text-[28px]">
               {isKazakh
                 ? "Өтініш операторға жеткенге дейін түсінікті болады"
                 : "Заявка становится понятной до передачи оператору"}

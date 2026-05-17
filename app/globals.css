@@ -79,11 +79,11 @@ textarea {
   }
 
   .section-band {
-    @apply py-16 sm:py-20 lg:py-24;
+    @apply py-10 sm:py-14 lg:py-20;
   }
 
   .page-panel {
-    @apply rounded-[var(--radius)] border border-app-border bg-app-surface p-6 text-app-text shadow-[0_18px_40px_-28px_rgba(10,11,13,0.24)];
+    @apply rounded-[var(--radius)] border border-app-border bg-app-surface p-4 text-app-text shadow-[0_18px_40px_-28px_rgba(10,11,13,0.24)] sm:p-6;
   }
 
   .soft-card {
@@ -104,21 +104,21 @@ textarea {
 
   .display-title {
     font-family: var(--font-sans);
-    @apply text-[40px] font-normal leading-[1] tracking-[-0.04em] text-app-text sm:text-[52px] lg:text-[64px];
+    @apply text-[32px] font-normal leading-[1.02] tracking-[-0.04em] text-app-text sm:text-[44px] lg:text-[64px];
   }
 
   .display-title-dark {
     font-family: var(--font-sans);
-    @apply text-[40px] font-normal leading-[1] tracking-[-0.04em] text-white sm:text-[52px] lg:text-[80px];
+    @apply text-[32px] font-normal leading-[1.02] tracking-[-0.04em] text-white sm:text-[44px] lg:text-[80px];
   }
 
   .section-title {
     font-family: var(--font-sans);
-    @apply text-[32px] font-normal leading-[1.05] tracking-[-0.03em] text-app-text sm:text-[44px];
+    @apply text-[28px] font-normal leading-[1.08] tracking-[-0.03em] text-app-text sm:text-[38px] lg:text-[44px];
   }
 
   .section-copy {
-    @apply text-[16px] leading-7 text-app-textMuted;
+    @apply text-[15px] leading-6 text-app-textMuted sm:text-[16px] sm:leading-7;
   }
 
   .number-display {

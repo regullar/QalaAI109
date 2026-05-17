@@ -31,7 +31,7 @@ export function Nav() {
           return (
             <li key={item.href}>
               <Link
-                className={`inline-flex min-h-[40px] items-center gap-2 rounded-full px-4 whitespace-nowrap text-[13px] font-medium leading-none transition ${
+                className={`inline-flex min-h-[40px] items-center gap-2 rounded-full px-3.5 whitespace-nowrap text-[13px] font-medium leading-none transition lg:px-4 ${
                   isActive ? "bg-white text-app-text" : "text-app-textSoft hover:text-app-text"
                 }`}
                 href={item.href}

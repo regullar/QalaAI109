@@ -112,12 +112,12 @@ export default async function AdminAnalyticsPage() {
       {summary ? (
         <>
           <StatsCards summary={summary} />
-          <div className="grid gap-5 xl:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <TopCategories data={summary.topCategories} />
             <TopDistricts data={summary.topDistricts} />
             <HotClusters data={summary.hotClusters} />
           </div>
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <DistributionBars
               titleKey="analytics.priorityDistribution"
               kind="priority"

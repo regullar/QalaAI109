@@ -9,8 +9,8 @@ export function Footer() {
 
   return (
     <footer className="border-t border-app-border bg-white text-app-textMuted">
-      <div className="section-wrap py-12">
-        <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(2,1fr)]">
+      <div className="section-wrap py-10 sm:py-12">
+        <div className="grid gap-8 md:grid-cols-[1.2fr_repeat(2,1fr)]">
           <div>
             <Link href="/" className="inline-flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surfaceMuted text-app-text">
@@ -22,14 +22,14 @@ export function Footer() {
           </div>
           <div>
             <p className="text-[14px] font-semibold text-app-text">{language === "kk" ? "Платформа" : "Платформа"}</p>
-            <div className="mt-4 space-y-3 text-[14px] text-app-textMuted">
+            <div className="mt-3 space-y-2.5 text-[14px] text-app-textMuted">
               <a href="/report">{t("nav.report")}</a>
               <a href="/map">{t("nav.map")}</a>
             </div>
           </div>
           <div>
             <p className="text-[14px] font-semibold text-app-text">{language === "kk" ? "Операциялар" : "Операции"}</p>
-            <div className="mt-4 space-y-3 text-[14px] text-app-textMuted">
+            <div className="mt-3 space-y-2.5 text-[14px] text-app-textMuted">
               <a href="/admin">{t("nav.admin")}</a>
               <a href="/admin/analytics">{t("nav.analytics")}</a>
             </div>

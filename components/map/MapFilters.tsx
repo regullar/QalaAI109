@@ -86,7 +86,7 @@ export function MapFilters({
   return (
     <Card asChild>
       <section className="soft-card p-4 sm:p-5">
-      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2 2xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,0.95fr)] 2xl:items-end">
+      <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,0.95fr)] xl:items-end">
         <SelectField
           id="map-filter-district"
           label={t("common.district")}
@@ -128,7 +128,7 @@ export function MapFilters({
           onChange={(priority) => onChange({ ...values, priority })}
         />
 
-        <div className="flex items-end sm:col-span-2 2xl:col-span-1">
+        <div className="flex items-end sm:col-span-2 xl:col-span-1">
           <Button
             variant="unstyled"
             size="unstyled"

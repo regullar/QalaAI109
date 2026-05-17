@@ -39,7 +39,7 @@ export function ComplaintDetailsDrawer({
 
   return (
     <Card asChild>
-      <aside className="soft-card p-6 xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
+      <aside className="soft-card p-4 sm:p-6 xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs font-semibold text-app-textMuted">{complaint.public_id}</p>

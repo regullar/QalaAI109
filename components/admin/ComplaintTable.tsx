@@ -116,27 +116,27 @@ export function ComplaintTable({ initialComplaints, initialLogsByComplaintId }: 
   return (
     <div className="space-y-4">
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.total")}</p>
           <p className="mt-1 text-3xl font-bold text-app-text">{dashboardStats.total}</p>
         </Card>
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.new")}</p>
           <p className="mt-1 text-3xl font-bold text-app-text">{dashboardStats.newCount}</p>
         </Card>
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.critical")}</p>
           <p className="mt-1 text-3xl font-bold text-red-700">{dashboardStats.criticalCount}</p>
         </Card>
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.inProgress")}</p>
           <p className="mt-1 text-3xl font-bold text-orange-700">{dashboardStats.inProgressCount}</p>
         </Card>
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.clusters")}</p>
           <p className="mt-1 text-3xl font-bold text-app-text">{dashboardStats.clusters}</p>
         </Card>
-        <Card className="soft-card p-5">
+        <Card className="soft-card p-4 sm:p-5">
           <p className="eyebrow">{t("admin.resolved")}</p>
           <p className="mt-1 text-3xl font-bold text-green-700">{dashboardStats.resolvedCount}</p>
         </Card>
@@ -234,7 +234,7 @@ export function ComplaintTable({ initialComplaints, initialLogsByComplaintId }: 
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] xl:items-start">
-        <section className="overflow-hidden rounded-[var(--radius)] border border-app-border bg-white">
+        <section className="hidden overflow-hidden rounded-[var(--radius)] border border-app-border bg-white lg:block">
           <div className="max-h-[calc(100vh-8rem)] overflow-auto">
             <table className="min-w-full border-collapse text-left">
               <thead>
@@ -299,6 +299,52 @@ export function ComplaintTable({ initialComplaints, initialLogsByComplaintId }: 
           </div>
         </section>
 
+        <section className="space-y-3 lg:hidden">
+          {filteredComplaints.length === 0 ? (
+            <Card className="soft-card p-4 text-sm text-app-textMuted">{t("admin.noRows")}</Card>
+          ) : (
+            filteredComplaints.map((complaint) => (
+              <Card key={complaint.id} className="soft-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-mono text-[11px] font-semibold text-app-textMuted">{complaint.public_id}</p>
+                    <h3 className="mt-1 text-base font-semibold text-app-text">{complaint.title}</h3>
+                  </div>
+                  <Button
+                    variant="unstyled"
+                    size="unstyled"
+                    type="button"
+                    onClick={() => setSelectedComplaintId(complaint.id)}
+                    className="shrink-0 rounded-full bg-app-surfaceStrong px-3 py-1.5 text-xs font-semibold text-app-text transition"
+                  >
+                    {t("admin.open")}
+                  </Button>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <PriorityBadge priority={complaint.priority} />
+                  <CategoryBadge category={complaint.category} />
+                  <ClusterBadge count={complaint.cluster_count} />
+                  <span className="inline-flex rounded-full bg-app-surfaceStrong px-2.5 py-1 text-xs font-semibold text-app-textMuted">
+                    {t(STATUS_TRANSLATION_KEYS[complaint.status])}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-sm">
+                  <div>
+                    <p className="eyebrow">{t("common.district")}</p>
+                    <p className="text-app-text">{formatDistrict(complaint.district, language)}</p>
+                  </div>
+                  <div>
+                    <p className="eyebrow">{t("admin.created")}</p>
+                    <p className="text-app-textMuted">{formatDateTime(complaint.created_at, language)}</p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </section>
+
         {selectedComplaint ? (
           <ComplaintDetailsDrawer
             complaint={selectedComplaint}
@@ -308,7 +354,7 @@ export function ComplaintTable({ initialComplaints, initialLogsByComplaintId }: 
           />
         ) : (
           <Card asChild>
-            <aside className="soft-card p-6 xl:sticky xl:top-24">
+            <aside className="soft-card p-4 sm:p-6 xl:sticky xl:top-24">
             <h3 className="text-base font-bold text-app-text">{t("admin.details")}</h3>
             <p className="mt-2 text-sm text-app-textMuted">
               {t("admin.detailsHint")}
