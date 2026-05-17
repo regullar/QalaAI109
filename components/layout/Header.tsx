@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { UserButton, useUser } from "@clerk/nextjs";
+import { LogoMark } from "@/components/brand/LogoMark";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { LANGUAGE_LABELS, LANGUAGES } from "@/lib/i18n";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { Nav } from "./Nav";
 
 export function Header() {
@@ -16,17 +17,19 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-app-border bg-white/95 text-app-text backdrop-blur-xl">
       <div className="section-wrap flex h-16 items-center justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-white">
-            <MaterialIcon name="apartment" className="text-[18px]" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-[20px] font-semibold leading-none tracking-[-0.02em] text-brand-600">
-              Qala AI
-            </p>
-            <span className="hidden text-[12px] font-medium leading-none tracking-[0.04em] text-app-textSoft sm:inline">
-              {t("app.subtitle")}
-            </span>
-          </div>
+          <Link href="/" className="group flex min-w-0 items-center gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-600 shadow-sm transition group-hover:text-brand-700">
+              <LogoMark className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[20px] font-semibold leading-none tracking-[-0.02em] text-brand-600">
+                Qala AI
+              </p>
+              <span className="hidden text-[12px] font-medium leading-none tracking-[0.04em] text-app-textSoft sm:inline">
+                {t("app.subtitle")}
+              </span>
+            </div>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">

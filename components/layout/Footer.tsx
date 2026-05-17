@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { LogoMark } from "@/components/brand/LogoMark";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 
 export function Footer() {
@@ -10,7 +12,12 @@ export function Footer() {
       <div className="section-wrap py-12">
         <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(2,1fr)]">
           <div>
-            <p className="text-[20px] font-semibold tracking-[-0.02em] text-brand-600">Qala AI</p>
+            <Link href="/" className="inline-flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surfaceMuted text-app-text">
+                <LogoMark className="h-6 w-6" />
+              </span>
+              <span className="text-[20px] font-semibold tracking-[-0.02em] text-brand-600">Qala AI</span>
+            </Link>
             <p className="mt-3 max-w-sm text-[14px] leading-6 text-app-textMuted">{t("app.subtitle")}</p>
           </div>
           <div>
