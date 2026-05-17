@@ -71,7 +71,8 @@ function finalize(
   response.subcategory = subcategory;
   response.needsEmergencyWarning = needsEmergencyWarning;
   response.confidence = confidence;
-  response.appealText = `Прошу проверить и устранить проблему: ${title === "Городское обращение" ? summary : title}.`;
+  const appealSubject = title === "Городское обращение" ? summary : title;
+  response.appealText = `Прошу проверить и устранить проблему: ${appealSubject.replace(/[.!?]+$/, "")}.`;
 }
 
 export function fallbackClassify(
@@ -83,6 +84,7 @@ export function fallbackClassify(
   const response = createBaseResponse({ text, district, addressText });
 
   const mentionsChildren = includesAny(normalized, [
+    "дет",
     "дети",
     "ребен",
     "школ",

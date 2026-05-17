@@ -1,4 +1,5 @@
 import type { AnalyzeComplaintResponse, Complaint } from "@/types/complaint";
+import { CATEGORIES, DISTRICTS } from "./constants";
 import { fallbackClassify } from "./fallback-classifier";
 import { computeComplaintFingerprint } from "./duplicates";
 
@@ -6,6 +7,10 @@ type AnalyzeInput = {
   text: string;
   district?: string;
   addressText?: string;
+};
+
+type AnalyzeOptions = {
+  fallbackOnError?: boolean;
 };
 
 type DuplicateCompareResult = {
@@ -93,13 +98,15 @@ function normalizeAiResponse(
 async function analyzeWithOpenAi(input: AnalyzeInput): Promise<AnalyzeComplaintResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return fallbackClassify(input.text, input.district, input.addressText);
+    throw new Error("OpenAI API key is not configured.");
   }
 
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const systemPrompt = `Ты AI-диспетчер городских обращений Шымкента.
 
-Твоя задача - разобрать обращение жителя и вернуть строго JSON без markdown.
+Твоя задача - разобрать короткое, часто неформальное обращение жителя и вернуть структурированный JSON.
+Текст может прийти из Telegram-чата жильцов: там могут быть сленг, ошибки, разговорные слова и мало контекста.
+Даже если текст короткий, выдели городскую проблему, категорию, направление/ответственную службу, приоритет, резюме и официальный текст.
 
 Город: Шымкент.
 
@@ -145,14 +152,63 @@ async function analyzeWithOpenAi(input: AnalyzeInput): Promise<AnalyzeComplaintR
 Правила:
 - Не выдумывай точный адрес, если его нет.
 - Если район не указан, верни "Не определен".
+- Если район или адрес переданы во входных данных, сохрани их, если текст явно не противоречит.
 - Если есть угроза жизни, газ, пожар, ДТП, открытый люк, оголенный провод - priority = critical.
 - Если рядом школа, дети, пешеходный переход, светофор, темная улица - priority минимум high.
-- Если обращение эмоциональное, перепиши его в официальный деловой текст.
+- Если обращение про бродячих собак или животных во дворах, category = "Безопасность", subcategory = "Бродячие животные", responsibleService = "Ветеринарная служба / служба отлова безнадзорных животных"; если рядом дети, priority минимум high.
+- Для слов "псы", "собаки", "бродячие", "кошмарят детей", "пугают детей" классифицируй как проблему безопасности, а не как "Другое".
+- Если обращение эмоциональное, перепиши его в официальный деловой текст, но не теряй суть проблемы.
+- summary должен быть конкретным описанием проблемы, не общая фраза про ручную проверку.
+- appealText должен быть официальным текстом заявки для городской службы.
 - Если текст не относится к городской проблеме, category = "Другое", priority = "low".
 - Ответ только JSON.`;
 
+  const responseSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      title: { type: "string" },
+      category: { type: "string", enum: [...CATEGORIES] },
+      subcategory: { type: "string" },
+      district: { type: "string", enum: [...DISTRICTS, "Не определен"] },
+      priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+      addressText: { type: "string" },
+      riskFactors: {
+        type: "array",
+        items: { type: "string" }
+      },
+      summary: { type: "string" },
+      responsibleService: { type: "string" },
+      appealText: { type: "string" },
+      needsEmergencyWarning: { type: "boolean" },
+      confidence: { type: "number" }
+    },
+    required: [
+      "title",
+      "category",
+      "subcategory",
+      "district",
+      "priority",
+      "addressText",
+      "riskFactors",
+      "summary",
+      "responsibleService",
+      "appealText",
+      "needsEmergencyWarning",
+      "confidence"
+    ]
+  };
+
   const body = {
     model,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "complaint_analysis",
+        strict: true,
+        schema: responseSchema
+      }
+    },
     input: [
       { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
       {
@@ -181,7 +237,9 @@ async function analyzeWithOpenAi(input: AnalyzeInput): Promise<AnalyzeComplaintR
   });
 
   if (!response.ok) {
-    throw new Error(`AI analyze failed: ${response.status}`);
+    const errorText = await response.text().catch(() => "");
+    const detail = errorText ? `: ${errorText.slice(0, 300)}` : "";
+    throw new Error(`OpenAI analyze failed with status ${response.status}${detail}`);
   }
 
   const data = (await response.json()) as Record<string, unknown>;
@@ -360,17 +418,35 @@ export async function compareDuplicateComplaintsWithAi(
 }
 
 export async function analyzeComplaint(input: AnalyzeInput): Promise<AnalyzeComplaintResponse> {
+  return analyzeComplaintWithOptions(input);
+}
+
+export async function analyzeComplaintWithOptions(
+  input: AnalyzeInput,
+  options: AnalyzeOptions = {}
+): Promise<AnalyzeComplaintResponse> {
+  const fallbackOnError = options.fallbackOnError ?? true;
+
   if (!input.text.trim()) {
+    if (!fallbackOnError) {
+      throw new Error("Complaint text is empty.");
+    }
     return fallbackClassify(input.text, input.district, input.addressText);
   }
 
   if (!process.env.OPENAI_API_KEY) {
+    if (!fallbackOnError) {
+      throw new Error("OpenAI API key is not configured.");
+    }
     return fallbackClassify(input.text, input.district, input.addressText);
   }
 
   try {
     return await analyzeWithOpenAi(input);
-  } catch {
+  } catch (error) {
+    if (!fallbackOnError) {
+      throw error;
+    }
     return fallbackClassify(input.text, input.district, input.addressText);
   }
 }

@@ -1,4 +1,4 @@
-import { analyzeComplaint } from "@/lib/ai";
+import { analyzeComplaintWithOptions } from "@/lib/ai";
 import { SOURCES } from "@/lib/constants";
 import { buildDuplicatePersistedFields, createDuplicateAiHint } from "@/lib/duplicates";
 import { inferComplaintCoordinates } from "@/lib/locations";
@@ -105,7 +105,21 @@ export async function POST(request: Request) {
   const source = SOURCES.includes("Telegram Demo" as (typeof SOURCES)[number]) ? "Telegram Demo" : "Telegram";
 
   for (const group of groups) {
-    const analysis = await analyzeComplaint({ text: group.rawText });
+    let analysis;
+    try {
+      analysis = await analyzeComplaintWithOptions(
+        {
+          text: group.rawText,
+          district: configuredChat.district || undefined,
+          addressText: configuredChat.address_text || payload.chat.title || undefined
+        },
+        { fallbackOnError: false }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "AI analysis failed.";
+      return Response.json({ error: `AI analysis failed for Telegram complaint: ${message}` }, { status: 502 });
+    }
+
     const inferredLocation = inferComplaintCoordinates({
       rawText: group.rawText,
       district: normalizeDistrict(analysis.district) || configuredChat.district,
