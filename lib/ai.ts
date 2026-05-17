@@ -64,6 +64,29 @@ function toStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+function extractResponseText(data: Record<string, unknown>) {
+  const directOutputText = toStringValue(data.output_text);
+  if (directOutputText) return directOutputText;
+
+  const output = data.output;
+  if (!Array.isArray(output)) return "";
+
+  const chunks: string[] = [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const content = (item as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const text = toStringValue((part as { text?: unknown }).text);
+      if (text) chunks.push(text);
+    }
+  }
+
+  return chunks.join("\n").trim();
+}
+
 function normalizeAiResponse(
   data: Record<string, unknown>,
   input: AnalyzeInput
@@ -243,11 +266,12 @@ async function analyzeWithOpenAi(input: AnalyzeInput): Promise<AnalyzeComplaintR
   }
 
   const data = (await response.json()) as Record<string, unknown>;
-  const outputText = toStringValue(data.output_text);
+  const outputText = extractResponseText(data);
   const parsed = parseJsonObject(outputText);
 
   if (!parsed) {
-    throw new Error("AI analyze returned invalid JSON");
+    const detail = outputText ? `: ${outputText.slice(0, 300)}` : "";
+    throw new Error(`AI analyze returned invalid JSON${detail}`);
   }
 
   return normalizeAiResponse(parsed, input);
@@ -408,7 +432,7 @@ export async function compareDuplicateComplaintsWithAi(
 
   try {
     const data = await callResponsesApi(body);
-    const outputText = toStringValue(data.output_text);
+    const outputText = extractResponseText(data);
     const parsed = parseJsonObject(outputText);
     if (!parsed) return null;
     return normalizeDuplicateCompareResult(parsed);
