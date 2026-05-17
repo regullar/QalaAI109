@@ -16,30 +16,30 @@ export function Hero() {
       <div className="mx-auto max-w-[1400px] overflow-hidden rounded-[var(--radius)] border border-white/10 bg-app-dark px-4 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-12">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:items-center">
           <div className="max-w-3xl">
-            <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-white/72">
+            <p className="fade-up text-[13px] font-medium uppercase tracking-[0.08em] text-white/72">
               {isKazakh ? "Қалалық AI-диспетчер" : "AI-диспетчер города"}
             </p>
-            <h1 className="display-title-dark mt-5 max-w-4xl">{t("hero.title")}</h1>
-            <p className="mt-5 max-w-2xl text-[16px] leading-7 text-white/82 sm:text-[18px] sm:leading-8">{t("hero.copy")}</p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Button asChild variant="unstyled" size="unstyled" className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-6 py-4 text-[16px] font-semibold text-white sm:w-auto sm:px-8">
+            <h1 className="display-title-dark fade-up stagger-1 mt-5 max-w-4xl">{t("hero.title")}</h1>
+            <p className="fade-up stagger-2 mt-5 max-w-2xl text-[16px] leading-7 text-white/82 sm:text-[18px] sm:leading-8">{t("hero.copy")}</p>
+            <div className="fade-up stagger-3 mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Button asChild variant="unstyled" size="unstyled" className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-6 py-4 text-[16px] font-semibold text-white transition-all duration-300 ease-[var(--motion-smooth)] hover:-translate-y-0.5 hover:bg-brand-700 hover:shadow-[0_20px_36px_-24px_rgba(0,82,255,0.55)] sm:w-auto sm:px-8">
                 <Link href="/report">
                   {t("hero.report")}
                   <MaterialIcon name="arrow_forward" className="text-[16px]" />
                 </Link>
               </Button>
-              <Button asChild variant="unstyled" size="unstyled" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-[16px] font-semibold text-white sm:w-auto">
+              <Button asChild variant="unstyled" size="unstyled" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-[16px] font-semibold text-white transition-all duration-300 ease-[var(--motion-smooth)] hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/5 hover:shadow-[0_18px_30px_-24px_rgba(0,0,0,0.45)] sm:w-auto">
                 <Link href="/map">{t("hero.map")}</Link>
               </Button>
             </div>
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              <Card className="dark-card p-4 sm:p-5">
+              <Card className="dark-card fade-up stagger-3 hover-lift-soft p-4 sm:p-5">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
                   {isKazakh ? "Өтініш қабылдау" : "Прием обращений"}
                 </p>
                 <p className="mt-3 text-[28px] font-normal tracking-[-0.03em] text-white">24/7</p>
               </Card>
-              <Card className="dark-card p-4 sm:p-5">
+              <Card className="dark-card fade-up stagger-4 hover-lift-soft p-4 sm:p-5">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
                   {isKazakh ? "Басымдық деңгейлері" : "Уровни приоритета"}
                 </p>
@@ -47,7 +47,7 @@ export function Hero() {
                   {isKazakh ? "5 деңгей" : "5 уровней"}
                 </p>
               </Card>
-              <Card className="dark-card p-4 sm:p-5">
+              <Card className="dark-card fade-up stagger-5 hover-lift-soft p-4 sm:p-5">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
                   {isKazakh ? "Қайталанатын аймақтар" : "Повторяющиеся зоны"}
                 </p>
@@ -59,7 +59,7 @@ export function Hero() {
           </div>
 
           <div className="grid gap-4 lg:relative lg:min-h-[420px]">
-            <Card className="dark-card p-5 shadow-[0_28px_60px_rgba(0,0,0,0.32)] lg:absolute lg:inset-x-0 lg:top-0 lg:p-6">
+            <Card className="dark-card fade-up stagger-4 p-5 shadow-[0_28px_60px_rgba(0,0,0,0.32)] lg:absolute lg:inset-x-0 lg:top-0 lg:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
@@ -102,7 +102,7 @@ export function Hero() {
               </div>
             </Card>
 
-            <Card className="dark-card p-5 shadow-[0_22px_50px_rgba(0,0,0,0.28)] lg:absolute lg:bottom-0 lg:right-0 lg:w-[82%] lg:-rotate-[5deg]">
+            <Card className="dark-card fade-up float-soft stagger-6 p-5 shadow-[0_22px_50px_rgba(0,0,0,0.28)] lg:absolute lg:bottom-0 lg:right-0 lg:w-[82%] lg:-rotate-[5deg]">
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
                 {isKazakh ? "Кластер картасы" : "Карта кластера"}
               </p>

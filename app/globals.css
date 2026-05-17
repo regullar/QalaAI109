@@ -33,6 +33,11 @@
   --primary-active: #0034ac;
   --primary-focus: rgba(0, 82, 255, 0.16);
   --accent: #f4b000;
+  --motion-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-duration-fast: 180ms;
+  --motion-duration-base: 320ms;
+  --motion-duration-slow: 520ms;
 }
 
 * {
@@ -146,14 +151,20 @@ textarea {
 
   .btn-primary {
     @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-brand-600 bg-brand-600 px-5 py-3 text-[16px] font-semibold leading-none tracking-normal text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border-brand-200 disabled:bg-brand-200 disabled:text-white/80;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
   }
 
   .btn-secondary {
     @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-app-surfaceStrong bg-app-surfaceStrong px-5 py-3 text-[16px] font-semibold leading-none tracking-normal text-app-text transition active:scale-[0.98] disabled:cursor-not-allowed disabled:text-app-textSoft;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
   }
 
   .btn-ai {
     @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-app-darkElevated bg-app-darkElevated px-5 py-3 text-[16px] font-semibold leading-none tracking-normal text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border-app-borderStrong disabled:bg-app-borderStrong disabled:text-app-textSoft;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
   }
 
   .label {
@@ -197,6 +208,157 @@ textarea {
 
   .mono {
     font-family: var(--font-mono), "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .motion-smooth {
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .motion-fast {
+    transition-duration: var(--motion-duration-fast);
+  }
+
+  .motion-base {
+    transition-duration: var(--motion-duration-base);
+  }
+
+  .motion-slow {
+    transition-duration: var(--motion-duration-slow);
+  }
+
+  .fade-in {
+    animation: fade-in var(--motion-duration-base) var(--motion-smooth) both;
+  }
+
+  .fade-up {
+    animation: fade-up var(--motion-duration-slow) var(--motion-smooth) both;
+  }
+
+  .scale-in {
+    animation: scale-in-soft 420ms var(--motion-smooth) both;
+  }
+
+  .float-soft {
+    animation: float-soft 6.8s ease-in-out infinite;
+  }
+
+  .stagger-1 {
+    animation-delay: 80ms;
+  }
+
+  .stagger-2 {
+    animation-delay: 140ms;
+  }
+
+  .stagger-3 {
+    animation-delay: 200ms;
+  }
+
+  .stagger-4 {
+    animation-delay: 260ms;
+  }
+
+  .stagger-5 {
+    animation-delay: 320ms;
+  }
+
+  .stagger-6 {
+    animation-delay: 380ms;
+  }
+
+  .stagger-7 {
+    animation-delay: 440ms;
+  }
+
+  .hover-lift {
+    @apply transition-transform transition-shadow;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-6px);
+  }
+
+  .hover-lift-soft {
+    @apply transition-transform;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .hover-lift-soft:hover {
+    transform: translateY(-2px);
+  }
+
+  .hover-glow {
+    @apply transition-shadow;
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 24px 50px -30px rgba(10, 11, 13, 0.3);
+  }
+
+  .interactive-pill {
+    @apply transition-[background-color,border-color,color,transform,box-shadow];
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .interactive-pill:hover {
+    transform: translateY(-1px);
+  }
+
+  .link-slide {
+    @apply transition-[color,transform];
+    transition-duration: var(--motion-duration-fast);
+    transition-timing-function: var(--motion-smooth);
+  }
+
+  .link-slide:hover {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes scale-in-soft {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
   }
 }
 
@@ -289,5 +451,27 @@ textarea {
   }
   html {
     @apply font-sans;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 120ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    .hover-lift:hover,
+    .hover-lift-soft:hover,
+    .interactive-pill:hover,
+    .link-slide:hover {
+      transform: none;
+    }
   }
 }

@@ -12,26 +12,30 @@ export function Footer() {
       <div className="section-wrap py-10 sm:py-12">
         <div className="grid gap-8 md:grid-cols-[1.2fr_repeat(2,1fr)]">
           <div>
-            <Link href="/" className="inline-flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surfaceMuted text-app-text">
+            <Link href="/" className="group inline-flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surfaceMuted text-app-text transition-all duration-300 ease-[var(--motion-smooth)] group-hover:-translate-y-0.5 group-hover:border-brand-100 group-hover:text-brand-600 group-hover:shadow-[0_16px_28px_-22px_rgba(10,11,13,0.28)]">
                 <LogoMark className="h-6 w-6" />
               </span>
-              <span className="text-[20px] font-semibold tracking-[-0.02em] text-brand-600">Qala AI</span>
+              <span className="text-[20px] font-semibold tracking-[-0.02em] text-brand-600 transition-transform duration-300 ease-[var(--motion-smooth)] group-hover:translate-x-0.5">
+                Qala AI
+              </span>
             </Link>
             <p className="mt-3 max-w-sm text-[14px] leading-6 text-app-textMuted">{t("app.subtitle")}</p>
           </div>
+
           <div>
             <p className="text-[14px] font-semibold text-app-text">{language === "kk" ? "Платформа" : "Платформа"}</p>
-            <div className="mt-3 space-y-2.5 text-[14px] text-app-textMuted">
-              <a href="/report">{t("nav.report")}</a>
-              <a href="/map">{t("nav.map")}</a>
+            <div className="mt-3 flex flex-col gap-2.5 text-[14px] text-app-textMuted">
+              <Link href="/report" className="link-slide hover:text-app-text">{t("nav.report")}</Link>
+              <Link href="/map" className="link-slide hover:text-app-text">{t("nav.map")}</Link>
             </div>
           </div>
+
           <div>
             <p className="text-[14px] font-semibold text-app-text">{language === "kk" ? "Операциялар" : "Операции"}</p>
-            <div className="mt-3 space-y-2.5 text-[14px] text-app-textMuted">
-              <a href="/admin">{t("nav.admin")}</a>
-              <a href="/admin/analytics">{t("nav.analytics")}</a>
+            <div className="mt-3 flex flex-col gap-2.5 text-[14px] text-app-textMuted">
+              <Link href="/admin" className="link-slide hover:text-app-text">{t("nav.admin")}</Link>
+              <Link href="/admin/analytics" className="link-slide hover:text-app-text">{t("nav.analytics")}</Link>
             </div>
           </div>
         </div>
