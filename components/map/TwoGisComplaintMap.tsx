@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 import { Card } from "@/components/ui/card";
-import { buildComplaintClusters, type ComplaintCluster } from "@/lib/cluster";
+import { buildComplaintClusters, getClusterKey, type ComplaintCluster } from "@/lib/cluster";
 import { CATEGORIES, DISTRICTS, PRIORITIES, SHYMKENT_CENTER, STATUSES } from "@/lib/constants";
 import { PRIORITY_TRANSLATION_KEYS, STATUS_TRANSLATION_KEYS } from "@/lib/i18n";
 import { formatCategory, formatDistrict } from "@/lib/i18n-options";
@@ -211,6 +211,13 @@ function createMarkerElement(point: MapPoint, isSelected: boolean) {
   return createComplaintMarker(color, isSelected);
 }
 
+function getPriorityLayerWeight(priority: Complaint["priority"]) {
+  if (priority === "critical") return 40;
+  if (priority === "high") return 28;
+  if (priority === "medium") return 16;
+  return 8;
+}
+
 export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMapProps) {
   const { language, t } = useI18n();
   const key = process.env.NEXT_PUBLIC_2GIS_API_KEY || "";
@@ -240,6 +247,10 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   );
 
   const clusters = useMemo(() => buildComplaintClusters(filteredComplaints), [filteredComplaints]);
+
+  const clusterCountByKey = useMemo(() => {
+    return new Map(clusters.map((cluster) => [cluster.key, cluster.count]));
+  }, [clusters]);
 
   const points = useMemo<MapPoint[]>(() => {
     if (filter.clusterMode) {
@@ -285,6 +296,28 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
     () => (selectedClusterKey ? clusters.find((item) => item.key === selectedClusterKey) || null : null),
     [clusters, selectedClusterKey]
   );
+
+  const layeredPoints = useMemo(() => {
+    const withLayer = points.map((point) => {
+      const isSelected =
+        point.kind === "cluster" ? point.cluster.key === selectedClusterKey : point.complaint.id === selectedComplaintId;
+
+      const zIndex = (() => {
+        if (isSelected) return 5000;
+
+        if (point.kind === "cluster") {
+          return 1000 + point.cluster.count * 20 + point.cluster.importanceScore;
+        }
+
+        const duplicateCount = clusterCountByKey.get(getClusterKey(point.complaint)) || 1;
+        return 100 + duplicateCount * 20 + getPriorityLayerWeight(point.complaint.priority);
+      })();
+
+      return { point, isSelected, zIndex };
+    });
+
+    return withLayer.sort((a, b) => a.zIndex - b.zIndex);
+  }, [clusterCountByKey, points, selectedClusterKey, selectedComplaintId]);
 
   useEffect(() => {
     if (!hasMapKey || !containerRef.current) return;
@@ -349,10 +382,10 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
     for (const marker of markersRef.current) marker.destroy?.();
     markersRef.current = [];
 
-    for (const point of points) {
-      const isSelected =
-        point.kind === "cluster" ? point.cluster.key === selectedClusterKey : point.complaint.id === selectedComplaintId;
+    for (const { point, isSelected, zIndex } of layeredPoints) {
       const html = createMarkerElement(point, isSelected);
+      html.style.position = "relative";
+      html.style.zIndex = String(zIndex);
 
       if (point.kind === "cluster") {
         html.addEventListener("click", () => {
@@ -373,12 +406,12 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
         anchor: [size / 2, size / 2],
         interactive: true,
         preventMapInteractions: true,
-        zIndex: isSelected ? 20 : point.kind === "cluster" ? 10 : 1
+        zIndex
       });
 
       markersRef.current.push(marker);
     }
-  }, [mapReady, points, selectedClusterKey, selectedComplaintId]);
+  }, [layeredPoints, mapReady]);
 
   const missingCoordsCount = filteredComplaints.filter((item) => !getComplaintCoords(item)).length;
   const criticalClusters = clusters.filter((cluster) => cluster.importanceScore >= 72).length;
