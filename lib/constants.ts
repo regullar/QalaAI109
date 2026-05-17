@@ -25,6 +25,7 @@ export const CATEGORIES = [
 
 export const SOURCES = [
   "Web",
+  "Telegram",
   "109 Demo",
   "WhatsApp Demo",
   "Telegram Demo",

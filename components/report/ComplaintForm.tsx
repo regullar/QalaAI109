@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DEMO_LOCATION_PRESETS, DISTRICTS } from "@/lib/constants";
+import { DEMO_LOCATION_PRESETS } from "@/lib/constants";
 import { formatDistrict } from "@/lib/i18n-options";
 import type { AnalyzeComplaintResponse } from "@/types/complaint";
 import { AiPreviewCard } from "./AiPreviewCard";
@@ -15,7 +15,7 @@ import { ReportLocationPicker } from "./ReportLocationPicker";
 
 type FormState = {
   rawText: string;
-  district: string;
+  district: string | null;
   addressText: string;
   latitude: number | null;
   longitude: number | null;
@@ -34,7 +34,7 @@ function isAnalyzeComplaintResponse(value: unknown): value is AnalyzeComplaintRe
 
 const initialState: FormState = {
   rawText: "",
-  district: DISTRICTS[0],
+  district: null,
   addressText: "",
   latitude: null,
   longitude: null
@@ -49,16 +49,23 @@ export function ComplaintForm() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResolvingDistrict, setIsResolvingDistrict] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const analyzeRequestRef = useRef(0);
+  const districtRequestRef = useRef(0);
   const descriptionId = "complaint-description";
-  const districtId = "complaint-district";
   const demoPointId = "complaint-demo-point";
   const addressId = "complaint-address";
+  const hasSelectedPoint = form.latitude !== null && form.longitude !== null;
+  const hasResolvedDistrict = !!form.district && !isResolvingDistrict;
 
-  const canAnalyze = useMemo(() => form.rawText.trim().length > 5, [form.rawText]);
+  const canAnalyze = useMemo(
+    () => form.rawText.trim().length > 5 && hasSelectedPoint && hasResolvedDistrict,
+    [form.rawText, hasSelectedPoint, hasResolvedDistrict]
+  );
   const canSubmit = useMemo(
-    () => form.rawText.trim().length > 5 && !!preview && !isSubmitting,
-    [form.rawText, preview, isSubmitting]
+    () => form.rawText.trim().length > 5 && hasSelectedPoint && hasResolvedDistrict && !!preview && !isSubmitting,
+    [form.rawText, hasSelectedPoint, hasResolvedDistrict, preview, isSubmitting]
   );
 
   const resetAnalysisState = () => {
@@ -67,6 +74,51 @@ export function ComplaintForm() {
     setError(null);
     setSuccessMessage(null);
     setIsAnalyzing(false);
+  };
+
+  const resolveDistrict = async (location: { latitude: number; longitude: number }) => {
+    const requestId = districtRequestRef.current + 1;
+    districtRequestRef.current = requestId;
+    setIsResolvingDistrict(true);
+    setLocationError(null);
+
+    try {
+      const params = new URLSearchParams({
+        lat: String(location.latitude),
+        lng: String(location.longitude)
+      });
+      const response = await fetch(`/api/locations/reverse-geocode?${params.toString()}`);
+      const data = (await response.json()) as {
+        district?: string;
+        addressText?: string | null;
+        error?: string;
+      };
+
+      if (districtRequestRef.current !== requestId) return;
+
+      if (!response.ok || !data.district) {
+        setLocationError(data.error || t("report.districtResolveError"));
+        return;
+      }
+
+      const resolvedDistrict = data.district;
+      setForm((prev) => {
+        if (prev.latitude !== location.latitude || prev.longitude !== location.longitude) return prev;
+        return {
+          ...prev,
+          district: resolvedDistrict,
+          addressText: data.addressText || ""
+        };
+      });
+    } catch {
+      if (districtRequestRef.current === requestId) {
+        setLocationError(t("report.districtResolveError"));
+      }
+    } finally {
+      if (districtRequestRef.current === requestId) {
+        setIsResolvingDistrict(false);
+      }
+    }
   };
 
   const updateField = (field: keyof FormState, value: string) => {
@@ -80,16 +132,32 @@ export function ComplaintForm() {
     resetAnalysisState();
     setForm((prev) => ({
       ...prev,
-      district: preset.district,
+      district: null,
       addressText: preset.addressText,
       latitude: preset.latitude,
       longitude: preset.longitude
     }));
+    void resolveDistrict({
+      latitude: preset.latitude,
+      longitude: preset.longitude
+    });
   };
 
   const updateLocation = (location: Pick<FormState, "latitude" | "longitude">) => {
     resetAnalysisState();
-    setForm((prev) => ({ ...prev, ...location }));
+    if (location.latitude === null || location.longitude === null) {
+      districtRequestRef.current += 1;
+      setIsResolvingDistrict(false);
+      setLocationError(null);
+      setForm((prev) => ({ ...prev, ...location, district: null, addressText: "" }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, ...location, district: null, addressText: "" }));
+    void resolveDistrict({
+      latitude: location.latitude,
+      longitude: location.longitude
+    });
   };
 
   const onAnalyze = async () => {
@@ -192,21 +260,16 @@ export function ComplaintForm() {
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid min-w-0 gap-2" htmlFor={districtId}>
+            <div className="grid min-w-0 gap-2">
               <span className="label">{t("common.district")}</span>
-              <select
-                id={districtId}
-                className="field w-full min-w-0"
-                value={form.district}
-                onChange={(event) => updateField("district", event.target.value)}
-              >
-                {DISTRICTS.map((district) => (
-                  <option key={district} value={district}>
-                    {formatDistrict(district, language)}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="field flex min-h-[52px] w-full min-w-0 items-center bg-app-surfaceMuted text-app-text">
+                {isResolvingDistrict
+                  ? t("report.districtResolving")
+                  : hasSelectedPoint
+                    ? formatDistrict(form.district, language)
+                    : t("report.districtAuto")}
+              </div>
+            </div>
             <label className="grid min-w-0 gap-2" htmlFor={demoPointId}>
               <span className="label">{t("report.demoPoint")}</span>
               <select
@@ -237,7 +300,7 @@ export function ComplaintForm() {
           </label>
 
           <ReportLocationPicker
-            district={form.district}
+            district={form.district || ""}
             value={{ latitude: form.latitude, longitude: form.longitude }}
             onChange={updateLocation}
           />
@@ -288,6 +351,8 @@ export function ComplaintForm() {
             </div>
           ) : null}
           {error ? <p className="text-sm text-semantic-down">{error}</p> : null}
+          {locationError ? <p className="text-sm font-semibold text-semantic-down">{locationError}</p> : null}
+          {!hasSelectedPoint ? <p className="text-sm font-semibold text-semantic-down">{t("report.locationRequired")}</p> : null}
           {!preview && !error ? <p className="muted-copy">{t("report.previewHint")}</p> : null}
           {isAnalyzing ? <Card className="soft-card-muted p-4 text-sm text-app-textMuted">{t("report.classifying")}</Card> : null}
         </div>

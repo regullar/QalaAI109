@@ -35,6 +35,23 @@ export type Complaint = {
   appeal_text: string | null;
   risk_factors: string[] | null;
   ai_confidence: number | null;
+  normalized_address?: string | null;
+  normalized_title?: string | null;
+  normalized_summary?: string | null;
+  normalized_text?: string | null;
+  duplicate_geo_bucket?: string | null;
+  duplicate_fingerprint_version?: number | null;
+  duplicate_ai_hint?:
+    | {
+        signature: string;
+        same_issue: boolean | null;
+        confidence: number | null;
+        reason_code: string | null;
+        matched_complaint_id: string | null;
+        matched_public_id: string | null;
+        evaluated_at: string | null;
+      }
+    | null;
 
   source: string;
   is_demo: boolean;

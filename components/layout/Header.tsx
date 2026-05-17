@@ -27,7 +27,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-app-border bg-white/95 text-app-text backdrop-blur-xl fade-in">
+    <header className="sticky top-0 z-[120] border-b border-app-border bg-white/95 text-app-text backdrop-blur-xl fade-in">
       <div className="section-wrap flex min-h-16 items-center justify-between gap-3 py-3 sm:py-2">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Link href="/" className="group flex min-w-0 items-center gap-3 sm:gap-4">

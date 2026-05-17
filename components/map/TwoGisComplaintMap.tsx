@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/LanguageProvider";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { buildComplaintClusters, getClusterKey, type ComplaintCluster } from "@/lib/cluster";
+import { buildComplaintClusters, type ComplaintCluster } from "@/lib/cluster";
 import { CATEGORIES, DISTRICTS, PRIORITIES, SHYMKENT_CENTER, STATUSES } from "@/lib/constants";
 import { PRIORITY_TRANSLATION_KEYS, STATUS_TRANSLATION_KEYS } from "@/lib/i18n";
 import { formatCategory, formatDistrict } from "@/lib/i18n-options";
@@ -11,15 +12,55 @@ import type { Complaint } from "@/types/complaint";
 import { ClusterPanel } from "./ClusterPanel";
 import { MapFilters } from "./MapFilters";
 
+type MapBounds = {
+  southWest: [number, number];
+  northEast: [number, number];
+};
+
+type AnimationOptions = {
+  duration?: number;
+  easing?: string;
+  useHeightForAnimation?: boolean;
+};
+
+type MapInstance = {
+  destroy: () => void;
+  setCenter: (center: [number, number], options?: AnimationOptions) => void;
+  setZoom: (zoom: number, options?: AnimationOptions) => void;
+  fitBounds: (
+    bounds: MapBounds,
+    options?: {
+      padding?: Partial<{ top: number; right: number; bottom: number; left: number }>;
+      skipMapPadding?: boolean;
+      considerRotation?: boolean;
+      animation?: AnimationOptions;
+      maxZoom?: number;
+    }
+  ) => void;
+};
+
+type MapObjectEventTarget = {
+  on: (type: "click", listener: () => void) => void;
+  destroy: () => void;
+};
+
+type MapObjectHandle = {
+  destroy: () => void;
+};
+
 type MapGlApi = {
   Map: new (
     container: HTMLElement,
-    options: { center: [number, number]; zoom: number; key: string }
-  ) => {
-    destroy: () => void;
-  };
+    options: {
+      center: [number, number];
+      zoom: number;
+      key: string;
+      zoomControl?: boolean | "topRight";
+      controlsLayoutPadding?: Partial<{ top: number; right: number; bottom: number; left: number }>;
+    }
+  ) => MapInstance;
   HtmlMarker: new (
-    map: object,
+    map: MapInstance,
     options: {
       coordinates: [number, number];
       html: HTMLElement;
@@ -28,9 +69,19 @@ type MapGlApi = {
       preventMapInteractions?: boolean;
       zIndex?: number;
     }
-  ) => {
-    destroy?: () => void;
-  };
+  ) => MapObjectHandle;
+  CircleMarker: new (
+    map: MapInstance,
+    options: {
+      coordinates: [number, number];
+      zIndex?: number;
+      color?: string;
+      diameter?: number;
+      strokeColor?: string;
+      strokeWidth?: number;
+      interactive?: boolean;
+    }
+  ) => MapObjectEventTarget;
 };
 
 type MapGlLoader = {
@@ -54,6 +105,8 @@ type FilterState = {
   clusterMode: boolean;
 };
 
+type CameraMode = "overview" | "cluster" | "complaint";
+
 const PRIORITY_COLORS: Record<Complaint["priority"], string> = {
   critical: "#ff453a",
   high: "#ff7a1a",
@@ -62,6 +115,9 @@ const PRIORITY_COLORS: Record<Complaint["priority"], string> = {
 };
 
 const RESOLVED_COLOR = "#34c759";
+const DEFAULT_CITY_ZOOM = 12;
+const COMPLAINT_FOCUS_ZOOM = 15.5;
+const SINGLE_POINT_OVERVIEW_ZOOM = 13.5;
 
 function getComplaintCoords(complaint: Complaint): [number, number] | null {
   if (complaint.longitude === null || complaint.latitude === null) return null;
@@ -94,56 +150,6 @@ function getPointColor(point: MapPoint) {
   return getClusterColor(point.cluster.importanceScore);
 }
 
-function createComplaintMarker(color: string, isSelected: boolean) {
-  const marker = document.createElement("button");
-  marker.type = "button";
-  marker.setAttribute("aria-label", "Complaint");
-  marker.style.width = isSelected ? "32px" : "24px";
-  marker.style.height = isSelected ? "32px" : "24px";
-  marker.style.border = "0";
-  marker.style.padding = "0";
-  marker.style.borderRadius = "999px";
-  marker.style.background = "transparent";
-  marker.style.display = "grid";
-  marker.style.placeItems = "center";
-  marker.style.cursor = "pointer";
-  marker.style.outline = "none";
-  marker.style.transition = "transform 180ms ease, filter 180ms ease";
-  marker.style.transform = isSelected ? "scale(1.08)" : "scale(1)";
-  marker.style.filter = isSelected ? "drop-shadow(0 12px 28px rgba(15, 23, 42, 0.28))" : "drop-shadow(0 8px 20px rgba(15, 23, 42, 0.2))";
-
-  const halo = document.createElement("span");
-  halo.style.width = "100%";
-  halo.style.height = "100%";
-  halo.style.borderRadius = "999px";
-  halo.style.display = "grid";
-  halo.style.placeItems = "center";
-  halo.style.background = `radial-gradient(circle, ${color}44 0%, ${color}20 54%, rgba(255,255,255,0) 74%)`;
-  halo.style.backdropFilter = "blur(10px)";
-
-  const shell = document.createElement("span");
-  shell.style.width = isSelected ? "21px" : "17px";
-  shell.style.height = isSelected ? "21px" : "17px";
-  shell.style.borderRadius = "999px";
-  shell.style.background = "rgba(255,255,255,0.94)";
-  shell.style.border = "1px solid rgba(255,255,255,0.88)";
-  shell.style.boxShadow = "0 6px 18px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255,255,255,0.85)";
-  shell.style.display = "grid";
-  shell.style.placeItems = "center";
-
-  const dot = document.createElement("span");
-  dot.style.width = isSelected ? "11px" : "9px";
-  dot.style.height = isSelected ? "11px" : "9px";
-  dot.style.borderRadius = "999px";
-  dot.style.background = `linear-gradient(180deg, ${color} 0%, ${color}dd 100%)`;
-  dot.style.boxShadow = `0 0 0 1px ${color}22, 0 4px 10px ${color}55`;
-
-  shell.appendChild(dot);
-  halo.appendChild(shell);
-  marker.appendChild(halo);
-  return marker;
-}
-
 function createClusterMarker(color: string, label: string, count: number, isSelected: boolean) {
   const size = Math.min(64, 42 + Math.max(0, count - 1) * 3);
 
@@ -162,7 +168,9 @@ function createClusterMarker(color: string, label: string, count: number, isSele
   marker.style.outline = "none";
   marker.style.transform = isSelected ? "scale(1.06)" : "scale(1)";
   marker.style.transition = "transform 180ms ease, filter 180ms ease";
-  marker.style.filter = isSelected ? "drop-shadow(0 16px 32px rgba(15, 23, 42, 0.3))" : "drop-shadow(0 10px 24px rgba(15, 23, 42, 0.2))";
+  marker.style.filter = isSelected
+    ? "drop-shadow(0 16px 32px rgba(15, 23, 42, 0.3))"
+    : "drop-shadow(0 10px 24px rgba(15, 23, 42, 0.2))";
 
   const halo = document.createElement("span");
   halo.style.width = "100%";
@@ -203,19 +211,150 @@ function createClusterMarker(color: string, label: string, count: number, isSele
   return marker;
 }
 
-function createMarkerElement(point: MapPoint, isSelected: boolean) {
-  const color = getPointColor(point);
-  if (point.kind === "cluster") {
-    return createClusterMarker(color, String(point.cluster.count), point.cluster.count, isSelected);
-  }
-  return createComplaintMarker(color, isSelected);
-}
-
 function getPriorityLayerWeight(priority: Complaint["priority"]) {
   if (priority === "critical") return 40;
   if (priority === "high") return 28;
   if (priority === "medium") return 16;
   return 8;
+}
+
+function getComplaintDiameter(isSelected: boolean) {
+  return isSelected ? 20 : 14;
+}
+
+function getCameraPadding() {
+  if (typeof window === "undefined") {
+    return { top: 32, right: 32, bottom: 32, left: 32 };
+  }
+
+  if (window.innerWidth < 768) {
+    return { top: 24, right: 24, bottom: 24, left: 24 };
+  }
+
+  if (window.innerWidth < 1280) {
+    return { top: 32, right: 32, bottom: 32, left: 32 };
+  }
+
+  return { top: 40, right: 40, bottom: 40, left: 40 };
+}
+
+function getControlPadding() {
+  if (typeof window === "undefined") {
+    return { top: 16, right: 16, bottom: 16, left: 16 };
+  }
+
+  if (window.innerWidth < 768) {
+    return { top: 12, right: 12, bottom: 12, left: 12 };
+  }
+
+  return { top: 16, right: 16, bottom: 16, left: 16 };
+}
+
+function buildBounds(coordinates: [number, number][]) {
+  if (coordinates.length === 0) return null;
+
+  let minLng = coordinates[0][0];
+  let maxLng = coordinates[0][0];
+  let minLat = coordinates[0][1];
+  let maxLat = coordinates[0][1];
+
+  for (const [lng, lat] of coordinates) {
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  return {
+    southWest: [minLng, minLat] as [number, number],
+    northEast: [maxLng, maxLat] as [number, number]
+  };
+}
+
+function getClusterCoordinates(cluster: ComplaintCluster) {
+  return cluster.complaints
+    .map((complaint) => getComplaintCoords(complaint))
+    .filter((coords): coords is [number, number] => coords !== null);
+}
+
+function focusOverview(map: MapInstance, complaints: Complaint[]) {
+  const coordinates = complaints
+    .map((complaint) => getComplaintCoords(complaint))
+    .filter((coords): coords is [number, number] => coords !== null);
+
+  if (coordinates.length === 0) {
+    map.setCenter([SHYMKENT_CENTER.lng, SHYMKENT_CENTER.lat], { duration: 540, easing: "easeOutCubic" });
+    map.setZoom(DEFAULT_CITY_ZOOM, { duration: 540, easing: "easeOutCubic", useHeightForAnimation: true });
+    return;
+  }
+
+  if (coordinates.length === 1) {
+    map.setCenter(coordinates[0], { duration: 520, easing: "easeOutCubic" });
+    map.setZoom(SINGLE_POINT_OVERVIEW_ZOOM, {
+      duration: 520,
+      easing: "easeOutCubic",
+      useHeightForAnimation: true
+    });
+    return;
+  }
+
+  const bounds = buildBounds(coordinates);
+  if (!bounds) return;
+
+  map.fitBounds(bounds, {
+    padding: getCameraPadding(),
+    maxZoom: 14.5,
+    animation: { duration: 620, easing: "easeOutCubic" }
+  });
+}
+
+function focusCluster(map: MapInstance, cluster: ComplaintCluster | null) {
+  if (!cluster) return;
+
+  const coordinates = getClusterCoordinates(cluster);
+  if (coordinates.length === 0) return;
+
+  if (coordinates.length === 1) {
+    map.setCenter(coordinates[0], { duration: 520, easing: "easeOutCubic" });
+    map.setZoom(14.5, { duration: 520, easing: "easeOutCubic", useHeightForAnimation: true });
+    return;
+  }
+
+  const bounds = buildBounds(coordinates);
+  if (!bounds) return;
+
+  map.fitBounds(bounds, {
+    padding: getCameraPadding(),
+    maxZoom: 15,
+    animation: { duration: 620, easing: "easeOutCubic" }
+  });
+}
+
+function focusComplaint(map: MapInstance, complaint: Complaint | null) {
+  const coordinates = complaint ? getComplaintCoords(complaint) : null;
+  if (!coordinates) return;
+
+  map.setCenter(coordinates, { duration: 480, easing: "easeOutCubic" });
+  map.setZoom(COMPLAINT_FOCUS_ZOOM, {
+    duration: 480,
+    easing: "easeOutCubic",
+    useHeightForAnimation: true
+  });
+}
+
+function clearMapObjects(objectsRef: React.MutableRefObject<MapObjectHandle[]>) {
+  for (const marker of objectsRef.current) marker.destroy();
+  objectsRef.current = [];
+}
+
+function didDataFiltersChange(previous: FilterState | null, next: FilterState) {
+  if (!previous) return false;
+  return (
+    previous.district !== next.district ||
+    previous.category !== next.category ||
+    previous.status !== next.status ||
+    previous.priority !== next.priority
+  );
 }
 
 export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMapProps) {
@@ -232,14 +371,16 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   });
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedClusterKey, setSelectedClusterKey] = useState<string | null>(null);
+  const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
   const [isMapLoading, setIsMapLoading] = useState(hasMapKey);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<{ destroy: () => void } | null>(null);
+  const mapRef = useRef<MapInstance | null>(null);
   const mapglRef = useRef<MapGlApi | null>(null);
-  const markersRef = useRef<Array<{ destroy?: () => void }>>([]);
+  const objectsRef = useRef<MapObjectHandle[]>([]);
+  const previousFilterRef = useRef<FilterState | null>(null);
 
   const filteredComplaints = useMemo(
     () => complaints.filter((complaint) => complaintMatchesFilter(complaint, filter)),
@@ -248,8 +389,14 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
 
   const clusters = useMemo(() => buildComplaintClusters(filteredComplaints), [filteredComplaints]);
 
-  const clusterCountByKey = useMemo(() => {
-    return new Map(clusters.map((cluster) => [cluster.key, cluster.count]));
+  const clusterCountByComplaintId = useMemo(() => {
+    const entries = new Map<string, number>();
+    for (const cluster of clusters) {
+      for (const complaint of cluster.complaints) {
+        entries.set(complaint.id, cluster.count);
+      }
+    }
+    return entries;
   }, [clusters]);
 
   const points = useMemo<MapPoint[]>(() => {
@@ -300,7 +447,9 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   const layeredPoints = useMemo(() => {
     const withLayer = points.map((point) => {
       const isSelected =
-        point.kind === "cluster" ? point.cluster.key === selectedClusterKey : point.complaint.id === selectedComplaintId;
+        point.kind === "cluster"
+          ? point.cluster.key === selectedClusterKey
+          : point.complaint.id === selectedComplaintId;
 
       const zIndex = (() => {
         if (isSelected) return 5000;
@@ -309,7 +458,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
           return 1000 + point.cluster.count * 20 + point.cluster.importanceScore;
         }
 
-        const duplicateCount = clusterCountByKey.get(getClusterKey(point.complaint)) || 1;
+        const duplicateCount = clusterCountByComplaintId.get(point.complaint.id) || 1;
         return 100 + duplicateCount * 20 + getPriorityLayerWeight(point.complaint.priority);
       })();
 
@@ -317,7 +466,75 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
     });
 
     return withLayer.sort((a, b) => a.zIndex - b.zIndex);
-  }, [clusterCountByKey, points, selectedClusterKey, selectedComplaintId]);
+  }, [clusterCountByComplaintId, points, selectedClusterKey, selectedComplaintId]);
+
+  const criticalClusters = clusters.filter((cluster) => cluster.importanceScore >= 72).length;
+  const missingCoordsCount = filteredComplaints.filter((item) => !getComplaintCoords(item)).length;
+
+  const cameraLabel =
+    cameraMode === "cluster"
+      ? t("map.cameraCluster")
+      : cameraMode === "complaint"
+        ? t("map.cameraComplaint")
+        : t("map.cameraOverview");
+
+  const handleSelectCluster = useCallback((clusterKey: string) => {
+    const cluster = clusters.find((item) => item.key === clusterKey) || null;
+    setSelectedClusterKey(clusterKey);
+    setSelectedComplaintId(cluster?.complaints[0]?.id || null);
+    setFilter((prev) => ({ ...prev, clusterMode: true }));
+    setCameraMode("cluster");
+  }, [clusters]);
+
+  const handleSelectComplaint = useCallback((complaintId: string) => {
+    setSelectedClusterKey(null);
+    setSelectedComplaintId(complaintId);
+    setCameraMode("complaint");
+  }, []);
+
+  const handleResetView = () => {
+    setSelectedClusterKey(null);
+    setSelectedComplaintId(null);
+    setCameraMode("overview");
+  };
+
+  const handleFilterChange = (next: FilterState) => {
+    const filtersChanged = didDataFiltersChange(previousFilterRef.current, next);
+    previousFilterRef.current = next;
+    setFilter(next);
+
+    if (filtersChanged) {
+      setSelectedClusterKey(null);
+      setSelectedComplaintId(null);
+      setCameraMode("overview");
+      return;
+    }
+
+    if (next.clusterMode !== filter.clusterMode) {
+      if (!next.clusterMode && selectedComplaintId) {
+        setCameraMode("complaint");
+      } else if (next.clusterMode && selectedClusterKey) {
+        setCameraMode("cluster");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedComplaintId && !selectedClusterKey) return;
+
+    const selectedComplaintStillVisible = selectedComplaintId
+      ? filteredComplaints.some((item) => item.id === selectedComplaintId)
+      : true;
+    const selectedClusterStillVisible = selectedClusterKey
+      ? clusters.some((item) => item.key === selectedClusterKey)
+      : true;
+
+    if (selectedComplaintStillVisible && selectedClusterStillVisible) return;
+
+    setSelectedComplaintId(null);
+    setSelectedClusterKey(null);
+    setCameraMode("overview");
+  }, [clusters, filteredComplaints, selectedClusterKey, selectedComplaintId]);
 
   useEffect(() => {
     if (!hasMapKey || !containerRef.current) return;
@@ -335,8 +552,10 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
         mapglRef.current = mapglApi;
         mapRef.current = new mapglApi.Map(containerRef.current, {
           center: [SHYMKENT_CENTER.lng, SHYMKENT_CENTER.lat],
-          zoom: 12,
-          key
+          zoom: DEFAULT_CITY_ZOOM,
+          key,
+          zoomControl: true,
+          controlsLayoutPadding: getControlPadding()
         });
         setMapReady(true);
       } catch (error) {
@@ -351,8 +570,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
 
     return () => {
       isCancelled = true;
-      for (const marker of markersRef.current) marker.destroy?.();
-      markersRef.current = [];
+      clearMapObjects(objectsRef);
       mapRef.current?.destroy();
       mapRef.current = null;
       mapglRef.current = null;
@@ -362,59 +580,70 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
   }, [hasMapKey, key, t]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!mapReady || !mapRef.current) return;
 
-    const preventPageScroll = (event: WheelEvent) => {
-      event.preventDefault();
-    };
+    if (cameraMode === "cluster" && filter.clusterMode && selectedCluster) {
+      focusCluster(mapRef.current, selectedCluster);
+      return;
+    }
 
-    container.addEventListener("wheel", preventPageScroll, { passive: false });
+    if (cameraMode === "complaint" && selectedComplaint) {
+      focusComplaint(mapRef.current, selectedComplaint);
+      return;
+    }
 
-    return () => {
-      container.removeEventListener("wheel", preventPageScroll);
-    };
-  }, []);
+    focusOverview(mapRef.current, filteredComplaints);
+  }, [cameraMode, filter.clusterMode, filteredComplaints, mapReady, selectedCluster, selectedComplaint]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !mapglRef.current) return;
 
-    for (const marker of markersRef.current) marker.destroy?.();
-    markersRef.current = [];
+    clearMapObjects(objectsRef);
 
     for (const { point, isSelected, zIndex } of layeredPoints) {
-      const html = createMarkerElement(point, isSelected);
-      html.style.position = "relative";
-      html.style.zIndex = String(zIndex);
-
       if (point.kind === "cluster") {
+        const html = createClusterMarker(
+          getPointColor(point),
+          String(point.cluster.count),
+          point.cluster.count,
+          isSelected
+        );
+        html.style.position = "relative";
+        html.style.zIndex = String(zIndex);
         html.addEventListener("click", () => {
-          setSelectedClusterKey(point.cluster.key);
-          setSelectedComplaintId(point.cluster.complaints[0]?.id || null);
+          handleSelectCluster(point.cluster.key);
         });
-      } else {
-        html.addEventListener("click", () => {
-          setSelectedClusterKey(null);
-          setSelectedComplaintId(point.complaint.id);
+
+        const size = Math.min(64, 42 + Math.max(0, point.cluster.count - 1) * 3);
+        const marker = new mapglRef.current.HtmlMarker(mapRef.current, {
+          coordinates: [point.longitude, point.latitude],
+          html,
+          anchor: [size / 2, size / 2],
+          interactive: true,
+          preventMapInteractions: true,
+          zIndex
         });
+
+        objectsRef.current.push(marker);
+        continue;
       }
 
-      const size = point.kind === "cluster" ? Math.min(64, 42 + Math.max(0, point.cluster.count - 1) * 3) : isSelected ? 32 : 24;
-      const marker = new mapglRef.current.HtmlMarker(mapRef.current, {
+      const marker = new mapglRef.current.CircleMarker(mapRef.current, {
         coordinates: [point.longitude, point.latitude],
-        html,
-        anchor: [size / 2, size / 2],
-        interactive: true,
-        preventMapInteractions: true,
-        zIndex
+        zIndex,
+        color: getPointColor(point),
+        diameter: getComplaintDiameter(isSelected),
+        strokeColor: isSelected ? "#ffffff" : "rgba(255,255,255,0.94)",
+        strokeWidth: isSelected ? 4 : 3,
+        interactive: true
       });
 
-      markersRef.current.push(marker);
+      marker.on("click", () => {
+        handleSelectComplaint(point.complaint.id);
+      });
+      objectsRef.current.push(marker);
     }
-  }, [layeredPoints, mapReady]);
-
-  const missingCoordsCount = filteredComplaints.filter((item) => !getComplaintCoords(item)).length;
-  const criticalClusters = clusters.filter((cluster) => cluster.importanceScore >= 72).length;
+  }, [handleSelectCluster, handleSelectComplaint, layeredPoints, mapReady]);
 
   return (
     <div className="space-y-4">
@@ -424,7 +653,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
         categories={[...CATEGORIES]}
         statuses={[...STATUSES]}
         priorities={[...PRIORITIES]}
-        onChange={setFilter}
+        onChange={handleFilterChange}
       />
 
       {!hasMapKey ? (
@@ -434,9 +663,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
       ) : null}
 
       {hasMapKey && isMapLoading ? (
-        <Card className="soft-card-muted p-4 text-sm text-app-textMuted">
-          {t("map.loading")}
-        </Card>
+        <Card className="soft-card-muted p-4 text-sm text-app-textMuted">{t("map.loading")}</Card>
       ) : null}
 
       {mapLoadError ? (
@@ -452,14 +679,12 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
       ) : null}
 
       {!loadError && complaints.length === 0 ? (
-        <Card className="soft-card-muted p-4 text-sm text-app-textMuted">
-          {t("map.empty")}
-        </Card>
+        <Card className="soft-card-muted p-4 text-sm text-app-textMuted">{t("map.empty")}</Card>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
         <section className="space-y-4">
-          <Card className="soft-card overflow-hidden p-4">
+          <Card className="soft-card relative z-0 isolate overflow-hidden p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs font-semibold text-app-text">
                 {filter.clusterMode ? t("map.clustersOn") : t("map.clustersOff")}
@@ -467,10 +692,23 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
               <span className="rounded-full bg-app-dark px-3 py-1 text-xs font-semibold text-white">
                 {criticalClusters}
               </span>
+              <span className="rounded-full bg-app-surfaceMuted px-3 py-1 text-xs font-semibold text-app-textMuted">
+                {cameraLabel}
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleResetView}
+                className="rounded-full px-3"
+              >
+                {t("map.showAll")}
+              </Button>
             </div>
+
             <div
               ref={containerRef}
-              className="h-[340px] w-full touch-none overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain] sm:h-[420px] lg:h-[520px] xl:h-[560px]"
+              className="relative z-0 h-[340px] w-full overflow-hidden rounded-[var(--radius)] border border-app-border bg-[radial-gradient(circle_at_top,_rgba(255,255,255,1),_rgba(247,247,247,1)_42%,_rgba(238,240,243,1)_100%)] [overscroll-behavior:contain] sm:h-[420px] lg:h-[520px] xl:h-[560px]"
             >
               {!hasMapKey ? (
                 <div className="flex h-full items-center justify-center p-4 text-center text-sm text-app-textMuted">
@@ -478,6 +716,7 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
                 </div>
               ) : null}
             </div>
+
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-app-textMuted">
               <span className="inline-flex items-center gap-2 rounded-full bg-app-surfaceStrong px-3 py-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#34c759]" />
@@ -500,43 +739,47 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
 
           <Card asChild>
             <section className="soft-card rounded-[var(--radius)] p-4 sm:p-6">
-            <h2 className="text-base font-bold text-app-text">{t("map.selected")}</h2>
-            {selectedComplaint ? (
-              <div className="mt-3 space-y-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-bold text-app-text">{t("map.selected")}</h2>
+              {selectedComplaint ? (
+                <div className="mt-3 space-y-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-app-surfaceStrong px-3 py-1 font-mono text-xs font-semibold text-app-text">
-                    {selectedComplaint.public_id}
-                  </span>
-                    <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs text-app-textMuted">
-                    {t(PRIORITY_TRANSLATION_KEYS[selectedComplaint.priority])}
-                  </span>
-                    <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs text-app-textMuted">
-                    {t(STATUS_TRANSLATION_KEYS[selectedComplaint.status])}
-                  </span>
-                  {selectedCluster ? (
-                    <span className="rounded-full bg-app-dark px-3 py-1 text-xs font-semibold text-white">
-                      {selectedCluster.importanceScore}
+                      {selectedComplaint.public_id}
                     </span>
-                  ) : null}
-                </div>
-                <p className="text-base font-semibold text-app-text">{selectedComplaint.title}</p>
-                <p className="text-app-textMuted">
-                  {formatDistrict(selectedComplaint.district, language)} | {formatCategory(selectedComplaint.category, language)}
-                </p>
-                <p className="text-app-textMuted">{selectedComplaint.address_text || t("common.addressMissing")}</p>
-                {selectedCluster ? (
-                  <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-textMuted">{t("map.hotZone")}</p>
-                    <p className="mt-1 text-sm text-app-text">
-                      {selectedCluster.count} {t("map.count")} | {selectedCluster.openCount} / {selectedCluster.resolvedCount}
-                    </p>
+                    <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs text-app-textMuted">
+                      {t(PRIORITY_TRANSLATION_KEYS[selectedComplaint.priority])}
+                    </span>
+                    <span className="rounded-full bg-app-surfaceStrong px-3 py-1 text-xs text-app-textMuted">
+                      {t(STATUS_TRANSLATION_KEYS[selectedComplaint.status])}
+                    </span>
+                    {selectedCluster ? (
+                      <span className="rounded-full bg-app-dark px-3 py-1 text-xs font-semibold text-white">
+                        {selectedCluster.importanceScore}
+                      </span>
+                    ) : null}
                   </div>
-                ) : null}
-                <p className="leading-6 text-app-text">{selectedComplaint.summary || selectedComplaint.raw_text}</p>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-app-textMuted">{t("map.selectHint")}</p>
-            )}
+                  <p className="text-base font-semibold text-app-text">{selectedComplaint.title}</p>
+                  <p className="text-app-textMuted">
+                    {formatDistrict(selectedComplaint.district, language)} |{" "}
+                    {formatCategory(selectedComplaint.category, language)}
+                  </p>
+                  <p className="text-app-textMuted">{selectedComplaint.address_text || t("common.addressMissing")}</p>
+                  {selectedCluster ? (
+                    <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.04em] text-app-textMuted">
+                        {t("map.hotZone")}
+                      </p>
+                      <p className="mt-1 text-sm text-app-text">
+                        {selectedCluster.count} {t("map.count")} | {selectedCluster.openCount} /{" "}
+                        {selectedCluster.resolvedCount}
+                      </p>
+                    </div>
+                  ) : null}
+                  <p className="leading-6 text-app-text">{selectedComplaint.summary || selectedComplaint.raw_text}</p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-app-textMuted">{t("map.selectHint")}</p>
+              )}
             </section>
           </Card>
         </section>
@@ -545,31 +788,32 @@ export function TwoGisComplaintMap({ complaints, loadError }: TwoGisComplaintMap
           <ClusterPanel
             clusters={clusters}
             selectedClusterKey={selectedClusterKey}
-            onSelect={(clusterKey) => {
-              setSelectedClusterKey(clusterKey);
-              const cluster = clusters.find((item) => item.key === clusterKey);
-              setSelectedComplaintId(cluster?.complaints[0]?.id || null);
-              setFilter((prev) => ({ ...prev, clusterMode: true }));
-            }}
+            onSelect={handleSelectCluster}
           />
 
           <Card asChild>
             <section className="soft-card rounded-[var(--radius)] p-4 sm:p-6">
-            <h3 className="text-base font-bold text-app-text">{t("map.summary")}</h3>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-textMuted">{t("map.filtered")}</p>
-                <p className="mt-1 text-lg font-semibold text-app-text">{filteredComplaints.length}</p>
+              <h3 className="text-base font-bold text-app-text">{t("map.summary")}</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
+                  <p className="break-words text-[11px] font-semibold uppercase leading-snug tracking-[0.04em] text-app-textMuted">
+                    {t("map.filtered")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-app-text">{filteredComplaints.length}</p>
+                </div>
+                <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
+                  <p className="break-words text-[11px] font-semibold uppercase leading-snug tracking-[0.04em] text-app-textMuted">
+                    {t("map.points")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-app-text">{points.length}</p>
+                </div>
+                <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
+                  <p className="break-words text-[11px] font-semibold uppercase leading-snug tracking-[0.04em] text-app-textMuted">
+                    {t("map.missingCoords")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-app-text">{missingCoordsCount}</p>
+                </div>
               </div>
-              <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-textMuted">{t("map.points")}</p>
-                <p className="mt-1 text-lg font-semibold text-app-text">{points.length}</p>
-              </div>
-              <div className="rounded-[var(--radius)] border border-app-border bg-app-surfaceMuted px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-textMuted">{t("map.missingCoords")}</p>
-                <p className="mt-1 text-lg font-semibold text-app-text">{missingCoordsCount}</p>
-              </div>
-            </div>
             </section>
           </Card>
         </section>

@@ -1,10 +1,17 @@
-import type { AnalyzeComplaintResponse } from "@/types/complaint";
+import type { AnalyzeComplaintResponse, Complaint } from "@/types/complaint";
 import { fallbackClassify } from "./fallback-classifier";
+import { computeComplaintFingerprint } from "./duplicates";
 
 type AnalyzeInput = {
   text: string;
   district?: string;
   addressText?: string;
+};
+
+type DuplicateCompareResult = {
+  same_issue: boolean;
+  confidence: number;
+  reason_code: string;
 };
 
 function clampConfidence(value: number) {
@@ -186,6 +193,170 @@ async function analyzeWithOpenAi(input: AnalyzeInput): Promise<AnalyzeComplaintR
   }
 
   return normalizeAiResponse(parsed, input);
+}
+
+async function callResponsesApi(body: object) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenAI API key is not configured.");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI responses call failed: ${response.status}`);
+  }
+
+  return (await response.json()) as Record<string, unknown>;
+}
+
+function normalizeDuplicateCompareResult(data: Record<string, unknown>): DuplicateCompareResult {
+  return {
+    same_issue: toBooleanValue(data.same_issue, false),
+    confidence: toNumberValue(data.confidence, 0.5),
+    reason_code: toStringValue(data.reason_code, "unknown")
+  };
+}
+
+export async function compareDuplicateComplaintsWithAi(
+  left: Pick<
+    Complaint,
+    | "id"
+    | "public_id"
+    | "category"
+    | "subcategory"
+    | "district"
+    | "address_text"
+    | "title"
+    | "summary"
+    | "raw_text"
+    | "latitude"
+    | "longitude"
+    | "normalized_address"
+    | "normalized_title"
+    | "normalized_summary"
+    | "normalized_text"
+    | "duplicate_geo_bucket"
+    | "duplicate_ai_hint"
+  >,
+  right: Pick<
+    Complaint,
+    | "id"
+    | "public_id"
+    | "category"
+    | "subcategory"
+    | "district"
+    | "address_text"
+    | "title"
+    | "summary"
+    | "raw_text"
+    | "latitude"
+    | "longitude"
+    | "normalized_address"
+    | "normalized_title"
+    | "normalized_summary"
+    | "normalized_text"
+    | "duplicate_geo_bucket"
+    | "duplicate_ai_hint"
+  >
+): Promise<DuplicateCompareResult | null> {
+  if (!process.env.OPENAI_API_KEY) return null;
+
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const leftFingerprint = computeComplaintFingerprint(left);
+  const rightFingerprint = computeComplaintFingerprint(right);
+
+  const body = {
+    model,
+    input: [
+      {
+        role: "system",
+        content: [
+          {
+            type: "input_text",
+            text: `Ты оцениваешь, относятся ли два городских обращения к одной и той же проблеме в Шымкенте.
+
+Верни строго JSON:
+{
+  "same_issue": boolean,
+  "confidence": number,
+  "reason_code": string
+}
+
+Правила:
+- Приоритет у места и категории, а не у слов.
+- Если категории разные, почти всегда same_issue = false.
+- Если координаты сильно отличаются, same_issue = false.
+- Если адреса конфликтуют и не указывают на одну точку, same_issue = false.
+- Если смысл совпадает, место совпадает или очень близко, а проблема одна и та же, same_issue = true.
+- confidence от 0 до 1.
+- reason_code одно короткое snake_case значение.`
+          }
+        ]
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              left: {
+                id: left.id,
+                public_id: left.public_id,
+                category: left.category,
+                subcategory: left.subcategory,
+                district: left.district,
+                address_text: left.address_text,
+                normalized_address: leftFingerprint.normalizedAddress,
+                title: left.title,
+                summary: left.summary,
+                raw_text: left.raw_text,
+                normalized_text: leftFingerprint.normalizedText,
+                latitude: left.latitude,
+                longitude: left.longitude,
+                geo_bucket: leftFingerprint.duplicateGeoBucket,
+                signature: leftFingerprint.signature
+              },
+              right: {
+                id: right.id,
+                public_id: right.public_id,
+                category: right.category,
+                subcategory: right.subcategory,
+                district: right.district,
+                address_text: right.address_text,
+                normalized_address: rightFingerprint.normalizedAddress,
+                title: right.title,
+                summary: right.summary,
+                raw_text: right.raw_text,
+                normalized_text: rightFingerprint.normalizedText,
+                latitude: right.latitude,
+                longitude: right.longitude,
+                geo_bucket: rightFingerprint.duplicateGeoBucket,
+                signature: rightFingerprint.signature
+              }
+            })
+          }
+        ]
+      }
+    ]
+  };
+
+  try {
+    const data = await callResponsesApi(body);
+    const outputText = toStringValue(data.output_text);
+    const parsed = parseJsonObject(outputText);
+    if (!parsed) return null;
+    return normalizeDuplicateCompareResult(parsed);
+  } catch {
+    return null;
+  }
 }
 
 export async function analyzeComplaint(input: AnalyzeInput): Promise<AnalyzeComplaintResponse> {

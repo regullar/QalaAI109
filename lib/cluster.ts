@@ -1,4 +1,13 @@
 import type { Complaint } from "@/types/complaint";
+import {
+  compareComplaintFingerprints,
+  computeComplaintFingerprint,
+  hasConfirmedDuplicateEdge,
+  isPotentialDuplicateFingerprintCandidate,
+  normalizeAddress
+} from "./duplicates";
+
+export { normalizeAddress };
 
 export type ComplaintCluster = {
   key: string;
@@ -31,26 +40,18 @@ const PRIORITY_WEIGHT: Record<Complaint["priority"], number> = {
   critical: 1
 };
 
-export function normalizeAddress(address: string | null | undefined) {
-  if (!address) return "";
-  return address
-    .toLowerCase()
-    .replace(/мкр|микрорайон|microdistrict|mkr|district|район/giu, " ")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function getClusterKey(complaint: Pick<Complaint, "district" | "category" | "address_text">) {
-  const district = complaint.district || "Не определен";
-  const category = complaint.category || "Другое";
-  const address = normalizeAddress(complaint.address_text);
-  return `${district}|${category}|${address || "na"}`;
-}
-
 function parseDateTimestamp(dateString: string) {
   const timestamp = Date.parse(dateString);
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function sortByCreatedAt(complaints: Complaint[]) {
+  return [...complaints].sort((left, right) => {
+    const leftTs = parseDateTimestamp(left.created_at);
+    const rightTs = parseDateTimestamp(right.created_at);
+    if (leftTs !== rightTs) return leftTs - rightTs;
+    return left.public_id.localeCompare(right.public_id);
+  });
 }
 
 function pickHigherPriority(
@@ -89,51 +90,173 @@ function calculateImportanceScore(cluster: Pick<ComplaintCluster, "complaints" |
   return Math.round((weightedPriorityAverage * 0.58 + unresolvedRatio * 0.27 + concentrationFactor * 0.15) * 100);
 }
 
-export function buildComplaintClusters(complaints: Complaint[]) {
-  const clusters = new Map<string, ComplaintCluster>();
+function buildStableClusterKey(complaints: Complaint[]) {
+  const canonicalComplaint = sortByCreatedAt(complaints)[0];
+  return `cluster:${canonicalComplaint.id}`;
+}
 
-  for (const complaint of complaints) {
-    const key = getClusterKey(complaint);
-    const existing = clusters.get(key);
-    const longitude = complaint.longitude;
-    const latitude = complaint.latitude;
-    const resolved = isResolvedComplaint(complaint);
+function averageCoordinates(complaints: Complaint[]) {
+  const points = complaints.filter(
+    (complaint) => complaint.latitude !== null && complaint.longitude !== null
+  );
 
-    if (!existing) {
-      clusters.set(key, {
-        key,
-        district: complaint.district || "Не определен",
-        category: complaint.category || "Другое",
-        addressText: complaint.address_text || "",
-        count: 1,
-        priority: complaint.priority,
-        priorityCounts: createPriorityCounts(complaint.priority),
-        openCount: resolved ? 0 : 1,
-        resolvedCount: resolved ? 1 : 0,
-        importanceScore: resolved ? Math.round(PRIORITY_WEIGHT[complaint.priority] * 24) : Math.round(55 + PRIORITY_WEIGHT[complaint.priority] * 45),
-        latestCreatedAt: complaint.created_at,
-        longitude,
-        latitude,
-        complaints: [complaint]
-      });
-      continue;
-    }
-
-    existing.count += 1;
-    existing.priority = pickHigherPriority(existing.priority, complaint.priority);
-    existing.priorityCounts[complaint.priority] += 1;
-    if (resolved) existing.resolvedCount += 1;
-    else existing.openCount += 1;
-    if (parseDateTimestamp(complaint.created_at) > parseDateTimestamp(existing.latestCreatedAt)) {
-      existing.latestCreatedAt = complaint.created_at;
-    }
-    if (existing.longitude === null && longitude !== null) existing.longitude = longitude;
-    if (existing.latitude === null && latitude !== null) existing.latitude = latitude;
-    existing.complaints.push(complaint);
-    existing.importanceScore = calculateImportanceScore(existing);
+  if (points.length === 0) {
+    return { latitude: null, longitude: null };
   }
 
-  return Array.from(clusters.values()).sort((a, b) => {
+  const totals = points.reduce(
+    (acc, complaint) => ({
+      latitude: acc.latitude + (complaint.latitude || 0),
+      longitude: acc.longitude + (complaint.longitude || 0)
+    }),
+    { latitude: 0, longitude: 0 }
+  );
+
+  return {
+    latitude: Number((totals.latitude / points.length).toFixed(6)),
+    longitude: Number((totals.longitude / points.length).toFixed(6))
+  };
+}
+
+function pickClusterAddress(complaints: Complaint[]) {
+  const sorted = sortByCreatedAt(complaints);
+  return sorted.find((complaint) => complaint.address_text?.trim())?.address_text || "";
+}
+
+class UnionFind {
+  private parent: number[];
+
+  constructor(size: number) {
+    this.parent = Array.from({ length: size }, (_, index) => index);
+  }
+
+  find(index: number): number {
+    if (this.parent[index] !== index) {
+      this.parent[index] = this.find(this.parent[index]);
+    }
+    return this.parent[index];
+  }
+
+  union(left: number, right: number) {
+    const leftRoot = this.find(left);
+    const rightRoot = this.find(right);
+    if (leftRoot === rightRoot) return;
+    this.parent[rightRoot] = leftRoot;
+  }
+}
+
+export function getClusterKey(complaint: Pick<Complaint, "district" | "category" | "address_text">) {
+  const fingerprint = computeComplaintFingerprint({
+    district: complaint.district,
+    category: complaint.category,
+    subcategory: null,
+    address_text: complaint.address_text,
+    title: "",
+    summary: "",
+    raw_text: "",
+    latitude: null,
+    longitude: null,
+    normalized_address: null,
+    normalized_title: null,
+    normalized_summary: null,
+    normalized_text: null,
+    duplicate_geo_bucket: null,
+    duplicate_ai_hint: null
+  });
+
+  return `${fingerprint.district}|${fingerprint.category}|${fingerprint.normalizedAddress || "na"}`;
+}
+
+export function buildComplaintClusters(complaints: Complaint[]) {
+  if (complaints.length === 0) return [];
+
+  const orderedComplaints = sortByCreatedAt(complaints);
+  const fingerprints = orderedComplaints.map((complaint) => computeComplaintFingerprint(complaint));
+  const unionFind = new UnionFind(orderedComplaints.length);
+
+  for (let leftIndex = 0; leftIndex < orderedComplaints.length; leftIndex += 1) {
+    const leftComplaint = orderedComplaints[leftIndex];
+
+    for (let rightIndex = leftIndex + 1; rightIndex < orderedComplaints.length; rightIndex += 1) {
+      const rightComplaint = orderedComplaints[rightIndex];
+      const leftFingerprint = fingerprints[leftIndex];
+      const rightFingerprint = fingerprints[rightIndex];
+
+      if (!isPotentialDuplicateFingerprintCandidate(leftFingerprint, rightFingerprint)) {
+        const hasAiEdge =
+          hasConfirmedDuplicateEdge(leftComplaint, rightComplaint.id) ||
+          hasConfirmedDuplicateEdge(rightComplaint, leftComplaint.id);
+        if (hasAiEdge) {
+          unionFind.union(leftIndex, rightIndex);
+        }
+        continue;
+      }
+
+      const decision = compareComplaintFingerprints(leftFingerprint, rightFingerprint);
+      const hasAiEdge =
+        hasConfirmedDuplicateEdge(leftComplaint, rightComplaint.id) ||
+        hasConfirmedDuplicateEdge(rightComplaint, leftComplaint.id);
+
+      if (decision.decision === "match" || hasAiEdge) {
+        unionFind.union(leftIndex, rightIndex);
+      }
+    }
+  }
+
+  const grouped = new Map<number, Complaint[]>();
+  for (let index = 0; index < orderedComplaints.length; index += 1) {
+    const root = unionFind.find(index);
+    const current = grouped.get(root) || [];
+    current.push(orderedComplaints[index]);
+    grouped.set(root, current);
+  }
+
+  const clusters = Array.from(grouped.values()).map<ComplaintCluster>((group) => {
+    const sortedGroup = sortByCreatedAt(group);
+    const primary = sortedGroup[0];
+    const coordinates = averageCoordinates(sortedGroup);
+    const priorityCounts = createPriorityCounts(primary.priority);
+    let clusterPriority = primary.priority;
+    let openCount = 0;
+    let resolvedCount = 0;
+    let latestCreatedAt = primary.created_at;
+
+    for (const complaint of sortedGroup) {
+      if (complaint.id !== primary.id) {
+        priorityCounts[complaint.priority] += 1;
+        clusterPriority = pickHigherPriority(clusterPriority, complaint.priority);
+      }
+
+      if (isResolvedComplaint(complaint)) resolvedCount += 1;
+      else openCount += 1;
+
+      if (parseDateTimestamp(complaint.created_at) > parseDateTimestamp(latestCreatedAt)) {
+        latestCreatedAt = complaint.created_at;
+      }
+    }
+
+    const cluster: ComplaintCluster = {
+      key: buildStableClusterKey(sortedGroup),
+      district: primary.district || "Не определен",
+      category: primary.category || "Другое",
+      addressText: pickClusterAddress(sortedGroup),
+      count: sortedGroup.length,
+      priority: clusterPriority,
+      priorityCounts,
+      openCount,
+      resolvedCount,
+      importanceScore: 0,
+      latestCreatedAt,
+      longitude: coordinates.longitude,
+      latitude: coordinates.latitude,
+      complaints: sortedGroup
+    };
+
+    cluster.importanceScore = calculateImportanceScore(cluster);
+    return cluster;
+  });
+
+  return clusters.sort((a, b) => {
     if (b.importanceScore !== a.importanceScore) return b.importanceScore - a.importanceScore;
     return b.count - a.count;
   });

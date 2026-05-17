@@ -1,6 +1,7 @@
 import { AppSetupError, getSignedInAppUser } from "@/lib/auth";
 import { STATUSES } from "@/lib/constants";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sendTelegramStatusReply } from "@/lib/telegram-bot-api";
 import type { ComplaintStatus } from "@/types/complaint";
 
 type UpdateStatusRequest = {
@@ -101,10 +102,38 @@ export async function PATCH(
       return Response.json({ error: logError?.message || "Failed to create status log." }, { status: 500 });
     }
 
+    const { data: telegramLink } = await supabase
+      .from("telegram_message_links")
+      .select("chat_id, message_id")
+      .eq("complaint_id", complaint.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    let telegramReply: string | null = null;
+    let telegramReplyError: string | null = null;
+
+    if (telegramLink?.chat_id && telegramLink.message_id) {
+      try {
+        telegramReply = await sendTelegramStatusReply({
+          botToken: process.env.TELEGRAM_BOT_TOKEN,
+          chatId: telegramLink.chat_id,
+          messageId: Number(telegramLink.message_id),
+          publicId: updatedComplaint.public_id,
+          status: nextStatus,
+          comment
+        });
+      } catch (error) {
+        telegramReplyError = error instanceof Error ? error.message : "Failed to send Telegram reply.";
+      }
+    }
+
     return Response.json(
       {
         complaint: updatedComplaint,
-        statusLog
+        statusLog,
+        telegramReply,
+        telegramReplyError
       },
       { status: 200 }
     );

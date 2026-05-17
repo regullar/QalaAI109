@@ -2,7 +2,7 @@ import { ComplaintTable } from "@/components/admin/ComplaintTable";
 import { LocalizedText } from "@/components/i18n/LocalizedText";
 import { LocalizedValue } from "@/components/i18n/LocalizedValue";
 import { requireAdminUser } from "@/lib/auth";
-import { buildComplaintClusters, getClusterKey } from "@/lib/cluster";
+import { buildComplaintClusters } from "@/lib/cluster";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { Complaint, StatusLog } from "@/types/complaint";
 
@@ -38,20 +38,36 @@ async function loadAdminData(): Promise<{
     }
 
     const complaints = (complaintsData || []) as Complaint[];
-    const clusterByKey = new Map(buildComplaintClusters(complaints).map((cluster) => [cluster.key, cluster]));
+    const clusters = buildComplaintClusters(complaints);
+    const clusterByComplaintId = new Map<string, AdminComplaint>();
 
-    const adminComplaints: AdminComplaint[] = complaints.map((complaint) => {
-      const key = getClusterKey(complaint);
-      const clusterInfo = clusterByKey.get(key);
-      return {
+    const adminComplaints: AdminComplaint[] = [];
+    for (const cluster of clusters) {
+      for (const complaint of cluster.complaints) {
+        const adminComplaint: AdminComplaint = {
+          ...complaint,
+          cluster_key: cluster.key,
+          cluster_count: cluster.count,
+          similar_public_ids: cluster.complaints
+            .map((item) => item.public_id)
+            .filter((item) => item !== complaint.public_id)
+        };
+        adminComplaints.push(adminComplaint);
+        clusterByComplaintId.set(complaint.id, adminComplaint);
+      }
+    }
+
+    const complaintsMissingFromClusters = complaints.filter((complaint) => !clusterByComplaintId.has(complaint.id));
+    for (const complaint of complaintsMissingFromClusters) {
+      adminComplaints.push({
         ...complaint,
-        cluster_key: key,
-        cluster_count: clusterInfo?.count || 1,
-        similar_public_ids: (clusterInfo?.complaints || [complaint])
-          .map((item) => item.public_id)
-          .filter((item) => item !== complaint.public_id)
-      };
-    });
+        cluster_key: `cluster:${complaint.id}`,
+        cluster_count: 1,
+        similar_public_ids: []
+      });
+    }
+
+    adminComplaints.sort((left, right) => right.created_at.localeCompare(left.created_at));
 
     const complaintIds = complaints.map((item) => item.id);
     if (complaintIds.length === 0) {
