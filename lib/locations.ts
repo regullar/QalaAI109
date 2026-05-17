@@ -19,6 +19,10 @@ type TwoGisItem = {
   address_name?: string | null;
   full_address_name?: string | null;
   name?: string | null;
+  point?: {
+    lat?: number | null;
+    lon?: number | null;
+  } | null;
 };
 
 function normalizeText(value: string | null | undefined) {
@@ -78,6 +82,18 @@ export function extractAddressFromTwoGisItems(items: TwoGisItem[]) {
   return item?.full_address_name || item?.address_name || item?.name || null;
 }
 
+export function extractPointFromTwoGisItems(items: TwoGisItem[]) {
+  const item = items[0];
+  const latitude = item?.point?.lat;
+  const longitude = item?.point?.lon;
+
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
+
 export async function resolveLocationFromTwoGis(input: {
   latitude: number;
   longitude: number;
@@ -107,6 +123,39 @@ export async function resolveLocationFromTwoGis(input: {
   return {
     district: extractDistrictFromTwoGisItems(items),
     addressText: extractAddressFromTwoGisItems(items)
+  };
+}
+
+export async function resolveAddressQueryWithTwoGis(input: {
+  query: string;
+  key: string;
+  locale?: string;
+}) {
+  const url = new URL("https://catalog.api.2gis.com/3.0/items/geocode");
+  url.searchParams.set("key", input.key);
+  url.searchParams.set("q", input.query);
+  url.searchParams.set("fields", "items.point,items.adm_div,items.address,items.full_address_name");
+  url.searchParams.set("page_size", "1");
+  if (input.locale) url.searchParams.set("locale", input.locale);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`2GIS address geocoder failed with ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    result?: {
+      items?: TwoGisItem[];
+    };
+  };
+  const items = data.result?.items || [];
+  const point = extractPointFromTwoGisItems(items);
+
+  return {
+    district: extractDistrictFromTwoGisItems(items),
+    addressText: extractAddressFromTwoGisItems(items),
+    latitude: point?.latitude || null,
+    longitude: point?.longitude || null
   };
 }
 

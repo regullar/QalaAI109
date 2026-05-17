@@ -66,23 +66,24 @@ export async function POST(request: Request) {
   const filteredMessages = filterTelegramMessagesForIngest(payload.messages);
   const groups = groupTelegramMessagesForComplaints(filteredMessages);
   const supabase = getSupabaseAdminClient();
+  const { data: configuredChat, error: configuredChatError } = await supabase
+    .from("telegram_chats")
+    .select("*")
+    .eq("chat_id", payload.chat.chatId)
+    .maybeSingle();
+
+  if (configuredChatError) {
+    return Response.json({ error: configuredChatError.message }, { status: 500 });
+  }
+
+  if (!configuredChat) {
+    return Response.json({ error: "Telegram chat is not configured. Run /qala_start first." }, { status: 400 });
+  }
 
   const userUpsert = await supabase.from("users").upsert({ id: adminUserId, role: "admin" }, { onConflict: "id" });
   if (userUpsert.error) {
     return Response.json({ error: userUpsert.error.message }, { status: 500 });
   }
-
-  await supabase
-    .from("telegram_chats")
-    .upsert(
-      {
-        chat_id: payload.chat.chatId,
-        title: payload.chat.title || null,
-        added_by_user_id: adminUserId,
-        is_active: true
-      },
-      { onConflict: "chat_id" }
-    );
 
   const windowInsert = await supabase
     .from("telegram_collection_windows")
@@ -107,8 +108,10 @@ export async function POST(request: Request) {
     const analysis = await analyzeComplaint({ text: group.rawText });
     const inferredLocation = inferComplaintCoordinates({
       rawText: group.rawText,
-      district: normalizeDistrict(analysis.district),
-      addressText: analysis.addressText || "Telegram chat"
+      district: normalizeDistrict(analysis.district) || configuredChat.district,
+      addressText: analysis.addressText || configuredChat.address_text || payload.chat.title || "Telegram chat",
+      latitude: configuredChat.latitude,
+      longitude: configuredChat.longitude
     });
     const publicId = createPublicId();
 
@@ -123,11 +126,13 @@ export async function POST(request: Request) {
       subcategory: analysis.subcategory,
       priority: analysis.priority,
       status: "new",
-      district: inferredLocation.district || normalizeDistrict(analysis.district),
-      address_text: inferredLocation.addressText || analysis.addressText || "Telegram chat",
+      district: inferredLocation.district || normalizeDistrict(analysis.district) || configuredChat.district,
+      address_text:
+        inferredLocation.addressText || analysis.addressText || configuredChat.address_text || "Telegram chat",
       latitude: inferredLocation.latitude,
       longitude: inferredLocation.longitude,
-      location_text: inferredLocation.addressText || analysis.addressText || "Telegram chat",
+      location_text:
+        inferredLocation.addressText || analysis.addressText || configuredChat.address_text || "Telegram chat",
       location_lat: inferredLocation.latitude,
       location_lng: inferredLocation.longitude,
       responsible_service: analysis.responsibleService,

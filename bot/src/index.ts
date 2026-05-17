@@ -1,4 +1,5 @@
 import { Bot } from "grammy";
+import { createChatSetupStore } from "./chat-setup-store.js";
 import { createCollectionStore, parseCollectionDuration, shouldCollectText } from "./message-buffer.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -15,8 +16,9 @@ if (!internalSecret) {
 
 const bot = new Bot(token);
 const store = createCollectionStore();
+const setupStore = createChatSetupStore();
 
-async function postJson(path: string, body: unknown) {
+async function postJson<T>(path: string, body: unknown) {
   const response = await fetch(`${webAppUrl.replace(/\/$/, "")}${path}`, {
     method: "POST",
     headers: {
@@ -26,7 +28,22 @@ async function postJson(path: string, body: unknown) {
     body: JSON.stringify(body)
   });
 
-  const data = (await response.json().catch(() => ({}))) as { error?: string; complaints?: unknown[] };
+  const data = (await response.json().catch(() => ({}))) as { error?: string } & T;
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed with ${response.status}`);
+  }
+  return data;
+}
+
+async function getJson(path: string) {
+  const response = await fetch(`${webAppUrl.replace(/\/$/, "")}${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${internalSecret}`
+    }
+  });
+
+  const data = (await response.json().catch(() => ({}))) as { error?: string; chat?: unknown };
   if (!response.ok) {
     throw new Error(data.error || `Request failed with ${response.status}`);
   }
@@ -56,18 +73,27 @@ async function flushWindow(chatId: string) {
     }))
   };
 
-  return postJson("/api/internal/telegram/ingest", payload);
+  return postJson<{ complaints: unknown[] }>("/api/internal/telegram/ingest", payload);
 }
 
 bot.command("qala_start", async (ctx) => {
-  await postJson("/api/internal/telegram/chats", {
+  setupStore.beginSetup({
     chatId: String(ctx.chat.id),
     title: ctx.chat.title || ctx.chat.first_name || "Telegram chat"
   });
-  await ctx.reply("QalaAI bot подключен к этому чату.");
+  await ctx.reply(
+    "Чтобы подключить этот чат, отправьте одним сообщением точный адрес ЖК или прикрепите геолокацию."
+  );
 });
 
 bot.command("qala_collect", async (ctx) => {
+  try {
+    await getJson(`/api/internal/telegram/chats?chatId=${encodeURIComponent(String(ctx.chat.id))}`);
+  } catch {
+    await ctx.reply("Сначала выполните /qala_start и отправьте точный адрес ЖК или геолокацию.");
+    return;
+  }
+
   const durationArg = ctx.match?.trim() || "30m";
   const durationMs = parseCollectionDuration(durationArg);
 
@@ -112,12 +138,61 @@ bot.command("qala_status", async (ctx) => {
   await ctx.reply(`Сбор активен. Сообщений: ${status.count}. До: ${new Date(status.endsAt || "").toLocaleString("ru-KZ")}.`);
 });
 
+bot.on("message:location", async (ctx) => {
+  const chatId = String(ctx.chat.id);
+  if (!setupStore.isAwaiting(chatId)) return;
+
+  try {
+    const result = await postJson<{ chat: { address_text?: string | null; district?: string | null } }>(
+      "/api/internal/telegram/chats",
+      {
+        chatId,
+        title: ctx.chat.title || ctx.chat.first_name || "Telegram chat",
+        latitude: ctx.message.location.latitude,
+        longitude: ctx.message.location.longitude
+      }
+    );
+    setupStore.completeSetup(chatId);
+    const chat = result.chat;
+    await ctx.reply(
+      `Чат подключен. Базовая точка: ${chat.address_text || "геолокация сохранена"}${chat.district ? `, ${chat.district}` : ""}.`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await ctx.reply(`Не удалось сохранить геолокацию: ${message}`);
+  }
+});
+
 bot.on("message:text", async (ctx) => {
   const text = ctx.message.text;
+  const chatId = String(ctx.chat.id);
+
+  if (setupStore.isAwaiting(chatId) && !text.trim().startsWith("/")) {
+    try {
+      const result = await postJson<{ chat: { address_text?: string | null; district?: string | null } }>(
+        "/api/internal/telegram/chats",
+        {
+        chatId,
+        title: ctx.chat.title || ctx.chat.first_name || "Telegram chat",
+        addressText: text.trim()
+        }
+      );
+      setupStore.completeSetup(chatId);
+      const chat = result.chat;
+      await ctx.reply(
+        `Чат подключен. Адрес: ${chat.address_text || text.trim()}${chat.district ? `, ${chat.district}` : ""}.`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      await ctx.reply(`Не удалось распознать адрес. Отправьте более точный адрес или геолокацию. Ошибка: ${message}`);
+    }
+    return;
+  }
+
   if (!shouldCollectText(text)) return;
 
   store.addMessage({
-    chatId: String(ctx.chat.id),
+    chatId,
     messageId: ctx.message.message_id,
     replyToMessageId: ctx.message.reply_to_message?.message_id || null,
     telegramUserId: ctx.from?.id ? String(ctx.from.id) : null,

@@ -115,9 +115,18 @@ create table if not exists telegram_chats (
   chat_id text primary key,
   title text,
   added_by_user_id text references users(id) on delete set null,
+  address_text text,
+  district text,
+  latitude double precision,
+  longitude double precision,
   is_active boolean not null default true,
   created_at timestamp with time zone not null default now()
 );
+
+alter table telegram_chats add column if not exists address_text text;
+alter table telegram_chats add column if not exists district text;
+alter table telegram_chats add column if not exists latitude double precision;
+alter table telegram_chats add column if not exists longitude double precision;
 
 create table if not exists telegram_collection_windows (
   id uuid primary key default gen_random_uuid(),
