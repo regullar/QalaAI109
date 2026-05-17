@@ -1,17 +1,22 @@
 import { LocalizedText } from "@/components/i18n/LocalizedText";
 import { LocalizedValue } from "@/components/i18n/LocalizedValue";
 import { TwoGisComplaintMap } from "@/components/map/TwoGisComplaintMap";
+import { requireAppUser } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { Complaint } from "@/types/complaint";
 
-async function fetchComplaints(): Promise<{ complaints: Complaint[]; error: string | null }> {
+async function fetchComplaints(userId: string, role: "user" | "admin"): Promise<{ complaints: Complaint[]; error: string | null }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { complaints: [], error: "Supabase environment is not configured." };
   }
 
   try {
     const supabase = getSupabaseAdminClient();
-    const { data, error } = await supabase.from("complaints").select("*").order("created_at", { ascending: false }).limit(500);
+    let query = supabase.from("complaints").select("*");
+    if (role !== "admin") {
+      query = query.eq("user_id", userId);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(500);
 
     if (error) {
       return { complaints: [], error: error.message };
@@ -25,7 +30,8 @@ async function fetchComplaints(): Promise<{ complaints: Complaint[]; error: stri
 }
 
 export default async function MapPage() {
-  const { complaints, error } = await fetchComplaints();
+  const appUser = await requireAppUser();
+  const { complaints, error } = await fetchComplaints(appUser.id, appUser.role);
 
   return (
     <section className="section-wrap section-band space-y-8">

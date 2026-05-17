@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { FileUp, Sparkles } from "lucide-react";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
@@ -43,11 +42,11 @@ const initialState: FormState = {
 
 export function ComplaintForm() {
   const { language, t } = useI18n();
-  const router = useRouter();
   const isKazakh = language === "kk";
   const [form, setForm] = useState<FormState>(initialState);
   const [preview, setPreview] = useState<AnalyzeComplaintResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const analyzeRequestRef = useRef(0);
@@ -66,6 +65,7 @@ export function ComplaintForm() {
     analyzeRequestRef.current += 1;
     setPreview(null);
     setError(null);
+    setSuccessMessage(null);
     setIsAnalyzing(false);
   };
 
@@ -152,15 +152,17 @@ export function ComplaintForm() {
 
       const data = (await response.json()) as {
         error?: string;
-        complaint?: { id: string; public_id: string };
+        message?: string;
       };
 
-      if (!response.ok || !data.complaint) {
+      if (!response.ok) {
         setError(data.error || t("report.submitError"));
         return;
       }
 
-      router.push(`/complaint/${encodeURIComponent(data.complaint.id)}`);
+      setForm(initialState);
+      setPreview(null);
+      setSuccessMessage(data.message || "Спасибо! Ваша жалоба принята. Мы уже начали её обработку.");
     } catch {
       setError(t("report.networkSubmitError"));
     } finally {
@@ -280,6 +282,11 @@ export function ComplaintForm() {
             )}
           </div>
 
+          {successMessage ? (
+            <div className="rounded-[var(--radius)] border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-800">
+              {successMessage}
+            </div>
+          ) : null}
           {error ? <p className="text-sm text-semantic-down">{error}</p> : null}
           {!preview && !error ? <p className="muted-copy">{t("report.previewHint")}</p> : null}
           {isAnalyzing ? <Card className="soft-card-muted p-4 text-sm text-app-textMuted">{t("report.classifying")}</Card> : null}
@@ -293,7 +300,7 @@ export function ComplaintForm() {
         ) : (
           <Card asChild>
             <section className="dark-card p-6">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/72">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white">
               {isKazakh ? "AI-талдау" : "AI-анализ"}
             </p>
             <h2 className="mt-4 text-[28px] font-normal tracking-[-0.03em] text-white">
@@ -301,7 +308,7 @@ export function ComplaintForm() {
                 ? "Өтініш операторға жеткенге дейін түсінікті болады"
                 : "Заявка становится понятной до передачи оператору"}
             </h2>
-            <p className="mt-4 text-[15px] leading-7 text-white/82">
+            <p className="mt-4 text-[15px] leading-7 text-zinc-300">
               {isKazakh
                 ? "Санатты, басымдықты, ауданды, жауапты қызметті, тәуекелдерді және ресми өтініш мәтінін алу үшін талдауды іске қосыңыз."
                 : "Запустите анализ, чтобы получить категорию, приоритет, район, ответственную службу, риски и официальный текст обращения."}

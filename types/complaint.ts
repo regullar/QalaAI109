@@ -11,9 +11,11 @@ export type ComplaintStatus =
 export type Complaint = {
   id: string;
   public_id: string;
+  user_id: string | null;
 
   raw_text: string;
   title: string;
+  description: string | null;
   summary: string | null;
 
   category: string;
@@ -25,6 +27,9 @@ export type Complaint = {
   address_text: string | null;
   latitude: number | null;
   longitude: number | null;
+  location_text: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
 
   responsible_service: string | null;
   appeal_text: string | null;

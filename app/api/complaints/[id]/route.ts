@@ -1,3 +1,4 @@
+import { AppSetupError, getSignedInAppUser } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 function isUuid(value: string) {
@@ -15,6 +16,11 @@ export async function GET(
   const { id } = await context.params;
 
   try {
+    const appUser = await getSignedInAppUser();
+    if (!appUser) {
+      return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdminClient();
     const complaintQuery = isUuid(id)
       ? supabase.from("complaints").select("*").eq("id", id).maybeSingle()
@@ -29,6 +35,10 @@ export async function GET(
       return Response.json({ error: "Complaint not found." }, { status: 404 });
     }
 
+    if (appUser.role !== "admin" && complaint.user_id !== appUser.id) {
+      return Response.json({ error: "Forbidden." }, { status: 403 });
+    }
+
     const { data: statusLogs, error: logsError } = await supabase
       .from("status_logs")
       .select("*")
@@ -41,6 +51,9 @@ export async function GET(
 
     return Response.json({ complaint, statusLogs: statusLogs || [] }, { status: 200 });
   } catch (error) {
+    if (error instanceof AppSetupError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     const message = error instanceof Error ? error.message : "Unknown server error.";
     return Response.json({ error: message }, { status: 500 });
   }

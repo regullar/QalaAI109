@@ -43,13 +43,13 @@ function SelectField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1" htmlFor={id}>
+    <label className="grid min-w-0 gap-2" htmlFor={id}>
       <span className="eyebrow">{label}</span>
       <select
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="field"
+        className="field w-full min-w-0"
       >
         <option value="all">{allLabel}</option>
         {options.map((item) => (
@@ -86,7 +86,7 @@ export function MapFilters({
   return (
     <Card asChild>
       <section className="soft-card p-4 sm:p-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,0.95fr)] xl:items-end">
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2 2xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,0.95fr)] 2xl:items-end">
         <SelectField
           id="map-filter-district"
           label={t("common.district")}
@@ -128,7 +128,7 @@ export function MapFilters({
           onChange={(priority) => onChange({ ...values, priority })}
         />
 
-        <div className="flex items-end">
+        <div className="flex items-end sm:col-span-2 2xl:col-span-1">
           <Button
             variant="unstyled"
             size="unstyled"

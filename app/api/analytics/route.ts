@@ -1,4 +1,5 @@
 import { buildComplaintClusters } from "@/lib/cluster";
+import { AppSetupError, getSignedInAppUser } from "@/lib/auth";
 import { PRIORITIES, STATUSES } from "@/lib/constants";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { AnalyticsSummary, CountByCategory, CountByDistrict, HotCluster } from "@/types/analytics";
@@ -75,6 +76,14 @@ export async function GET(request: Request) {
   }
 
   try {
+    const appUser = await getSignedInAppUser();
+    if (!appUser) {
+      return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    if (appUser.role !== "admin") {
+      return Response.json({ error: "Forbidden." }, { status: 403 });
+    }
+
     const url = new URL(request.url);
     const district = url.searchParams.get("district");
     const from = url.searchParams.get("from");
@@ -96,6 +105,9 @@ export async function GET(request: Request) {
     const summary = buildSummary(complaints);
     return Response.json(summary, { status: 200 });
   } catch (error) {
+    if (error instanceof AppSetupError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     const message = error instanceof Error ? error.message : "Unknown server error.";
     return Response.json({ error: message }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 import { ComplaintPublicDetails } from "@/components/complaint/ComplaintPublicDetails";
 import { LocalizedText } from "@/components/i18n/LocalizedText";
 import { Card } from "@/components/ui/card";
+import { requireAppUser } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { Complaint, StatusLog } from "@/types/complaint";
 
@@ -11,6 +12,7 @@ type ComplaintPageProps = {
 };
 
 export default async function ComplaintDetailsPage({ params }: ComplaintPageProps) {
+  const appUser = await requireAppUser();
   const { id } = await params;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
@@ -45,13 +47,30 @@ export default async function ComplaintDetailsPage({ params }: ComplaintPageProp
     }
 
     const typedComplaint = complaint as Complaint;
+    if (appUser.role !== "admin" && typedComplaint.user_id !== appUser.id) {
+      return (
+        <Card asChild>
+          <section className="page-panel">
+            <h1 className="text-2xl font-bold text-app-text">Нет доступа</h1>
+            <p className="mt-3 text-app-textMuted">Это обращение доступно только его автору.</p>
+          </section>
+        </Card>
+      );
+    }
+
     const { data: statusLogs } = await supabase
       .from("status_logs")
       .select("*")
       .eq("complaint_id", typedComplaint.id)
       .order("created_at", { ascending: true });
 
-    return <ComplaintPublicDetails complaint={typedComplaint} logs={(statusLogs || []) as StatusLog[]} />;
+    return (
+      <ComplaintPublicDetails
+        complaint={typedComplaint}
+        logs={(statusLogs || []) as StatusLog[]}
+        canOpenAdmin={appUser.role === "admin"}
+      />
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown server error.";
 

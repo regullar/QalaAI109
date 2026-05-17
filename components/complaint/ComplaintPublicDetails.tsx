@@ -13,9 +13,10 @@ import type { Complaint, StatusLog } from "@/types/complaint";
 type ComplaintPublicDetailsProps = {
   complaint: Complaint;
   logs: StatusLog[];
+  canOpenAdmin?: boolean;
 };
 
-export function ComplaintPublicDetails({ complaint, logs }: ComplaintPublicDetailsProps) {
+export function ComplaintPublicDetails({ complaint, logs, canOpenAdmin = false }: ComplaintPublicDetailsProps) {
   const { language, t } = useI18n();
 
   return (
@@ -65,8 +66,12 @@ export function ComplaintPublicDetails({ complaint, logs }: ComplaintPublicDetai
 
         <div className="mt-5 flex flex-wrap gap-2">
           <ActionLink href="/map">{t("complaint.openMap")}</ActionLink>
-          <ActionLink href="/admin">{t("complaint.openAdmin")}</ActionLink>
-          <ActionLink href="/admin/analytics">{t("complaint.openAnalytics")}</ActionLink>
+          {canOpenAdmin ? (
+            <>
+              <ActionLink href="/admin">{t("complaint.openAdmin")}</ActionLink>
+              <ActionLink href="/admin/analytics">{t("complaint.openAnalytics")}</ActionLink>
+            </>
+          ) : null}
         </div>
         </section>
       </Card>

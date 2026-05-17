@@ -1,3 +1,4 @@
+import { AppSetupError, getSignedInAppUser } from "@/lib/auth";
 import { STATUSES } from "@/lib/constants";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { ComplaintStatus } from "@/types/complaint";
@@ -19,6 +20,14 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const appUser = await getSignedInAppUser();
+  if (!appUser) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+  if (appUser.role !== "admin") {
+    return Response.json({ error: "Forbidden." }, { status: 403 });
+  }
+
   const { id } = await context.params;
   let payload: UpdateStatusRequest;
 
@@ -100,6 +109,9 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof AppSetupError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     const message = error instanceof Error ? error.message : "Unknown server error.";
     return Response.json({ error: message }, { status: 500 });
   }

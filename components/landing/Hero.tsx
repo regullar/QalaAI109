@@ -31,9 +31,6 @@ export function Hero() {
               <Button asChild variant="unstyled" size="unstyled" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-[16px] font-semibold text-white">
                 <Link href="/map">{t("hero.map")}</Link>
               </Button>
-              <Button asChild variant="unstyled" size="unstyled" className="btn-ai">
-                <Link href="/admin">{t("hero.admin")}</Link>
-              </Button>
             </div>
             <div className="mt-10 grid gap-3 sm:grid-cols-3">
               <Card className="dark-card p-5">

@@ -1,4 +1,5 @@
 import { analyzeComplaint } from "@/lib/ai";
+import { AppSetupError, getSignedInAppUser } from "@/lib/auth";
 import { SOURCES } from "@/lib/constants";
 import { inferComplaintCoordinates } from "@/lib/locations";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -48,6 +49,11 @@ export async function GET(request: Request) {
   }
 
   try {
+    const appUser = await getSignedInAppUser();
+    if (!appUser) {
+      return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const url = new URL(request.url);
     const district = url.searchParams.get("district");
     const category = url.searchParams.get("category");
@@ -57,6 +63,10 @@ export async function GET(request: Request) {
 
     const supabase = getSupabaseAdminClient();
     let query = supabase.from("complaints").select("*", { count: "exact" });
+
+    if (appUser.role !== "admin") {
+      query = query.eq("user_id", appUser.id);
+    }
 
     if (district && district !== "all") query = query.eq("district", district);
     if (category && category !== "all") query = query.eq("category", category);
@@ -70,12 +80,20 @@ export async function GET(request: Request) {
 
     return Response.json({ complaints: data || [], total: count || 0 }, { status: 200 });
   } catch (error) {
+    if (error instanceof AppSetupError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     const message = error instanceof Error ? error.message : "Unknown server error.";
     return Response.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const appUser = await getSignedInAppUser();
+  if (!appUser) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let payload: CreateComplaintRequest;
 
   try {
@@ -118,8 +136,10 @@ export async function POST(request: Request) {
 
     const insertData = {
       public_id: publicId,
+      user_id: appUser.id,
       raw_text: rawText,
       title: analysis.title,
+      description: analysis.summary || rawText,
       summary: analysis.summary,
       category: analysis.category,
       subcategory: analysis.subcategory,
@@ -129,6 +149,9 @@ export async function POST(request: Request) {
       address_text: inferredLocation.addressText || analysis.addressText || payload.addressText || null,
       latitude: inferredLocation.latitude,
       longitude: inferredLocation.longitude,
+      location_text: inferredLocation.addressText || analysis.addressText || payload.addressText || null,
+      location_lat: inferredLocation.latitude,
+      location_lng: inferredLocation.longitude,
       responsible_service: analysis.responsibleService,
       appeal_text: analysis.appealText,
       risk_factors: analysis.riskFactors,
@@ -164,13 +187,13 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      {
-        complaint,
-        analysisSource: analysis.source
-      },
+      { message: "Спасибо! Ваша жалоба принята. Мы уже начали её обработку." },
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof AppSetupError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     const message = error instanceof Error ? error.message : "Unknown server error.";
     return Response.json({ error: message }, { status: 500 });
   }

@@ -1,12 +1,21 @@
 create extension if not exists pgcrypto;
 
+create table if not exists users (
+  id text primary key,
+  role text not null default 'user' check (role in ('user', 'admin')),
+  phone text,
+  created_at timestamp with time zone not null default now()
+);
+
 create table if not exists complaints (
   id uuid primary key default gen_random_uuid(),
 
   public_id text unique not null,
+  user_id text references users(id) on delete set null,
 
   raw_text text not null,
   title text not null,
+  description text,
   summary text,
 
   category text not null,
@@ -20,6 +29,9 @@ create table if not exists complaints (
   address_text text,
   latitude double precision,
   longitude double precision,
+  location_text text,
+  location_lat double precision,
+  location_lng double precision,
 
   responsible_service text,
   appeal_text text,
@@ -36,6 +48,19 @@ create table if not exists complaints (
   updated_at timestamp with time zone not null default now()
 );
 
+alter table complaints add column if not exists user_id text references users(id) on delete set null;
+alter table complaints add column if not exists description text;
+alter table complaints add column if not exists location_text text;
+alter table complaints add column if not exists location_lat double precision;
+alter table complaints add column if not exists location_lng double precision;
+
+update complaints
+set
+  description = coalesce(description, summary, raw_text),
+  location_text = coalesce(location_text, address_text),
+  location_lat = coalesce(location_lat, latitude),
+  location_lng = coalesce(location_lng, longitude);
+
 create table if not exists status_logs (
   id uuid primary key default gen_random_uuid(),
   complaint_id uuid not null references complaints(id) on delete cascade,
@@ -51,6 +76,7 @@ create index if not exists idx_complaints_category on complaints(category);
 create index if not exists idx_complaints_district on complaints(district);
 create index if not exists idx_complaints_priority on complaints(priority);
 create index if not exists idx_complaints_status on complaints(status);
+create index if not exists idx_complaints_user_id on complaints(user_id);
 create index if not exists idx_complaints_created_at on complaints(created_at desc);
 create index if not exists idx_complaints_public_id on complaints(public_id);
 create index if not exists idx_status_logs_complaint_id_created_at

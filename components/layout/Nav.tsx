@@ -10,8 +10,7 @@ const navItems: Array<{ href: string; label: TranslationKey; icon: string }> = [
   { href: "/", label: "nav.home", icon: "home" },
   { href: "/report", label: "nav.report", icon: "edit_square" },
   { href: "/map", label: "nav.map", icon: "map" },
-  { href: "/admin", label: "nav.admin", icon: "space_dashboard" },
-  { href: "/admin/analytics", label: "nav.analytics", icon: "monitoring" }
+  { href: "/dashboard", label: "nav.dashboard", icon: "account_circle" }
 ];
 
 export function Nav() {

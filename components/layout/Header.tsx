@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
@@ -8,6 +10,7 @@ import { Nav } from "./Nav";
 
 export function Header() {
   const { language, setLanguage, t } = useI18n();
+  const { isSignedIn } = useUser();
 
   return (
     <header className="sticky top-0 z-40 border-b border-app-border bg-white/95 text-app-text backdrop-blur-xl">
@@ -46,8 +49,14 @@ export function Header() {
             ))}
           </div>
           <Button asChild variant="unstyled" size="unstyled" className="btn-primary hidden md:inline-flex">
-            <a href="/report">{t("nav.report")}</a>
+            <Link href="/report">{t("nav.report")}</Link>
           </Button>
+          {!isSignedIn ? (
+            <Button asChild variant="unstyled" size="unstyled" className="btn-secondary hidden min-h-10 px-4 py-2 md:inline-flex">
+              <Link href="/sign-in">Войти</Link>
+            </Button>
+          ) : null}
+          {isSignedIn ? <UserButton /> : null}
         </div>
       </div>
 
@@ -55,7 +64,7 @@ export function Header() {
         <div className="section-wrap flex h-14 items-center justify-between">
           <p className="text-[13px] font-medium text-app-textSoft">{t("app.subtitle")}</p>
           <Button asChild variant="unstyled" size="unstyled" className="btn-primary min-h-[40px] px-4 py-2 text-[14px]">
-            <a href="/report">{t("nav.report")}</a>
+            <Link href="/report">{t("nav.report")}</Link>
           </Button>
         </div>
       </div>

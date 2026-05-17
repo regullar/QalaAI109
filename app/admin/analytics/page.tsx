@@ -6,6 +6,7 @@ import { TopDistricts } from "@/components/analytics/TopDistricts";
 import { LocalizedText } from "@/components/i18n/LocalizedText";
 import { LocalizedValue } from "@/components/i18n/LocalizedValue";
 import { Card } from "@/components/ui/card";
+import { requireAdminUser } from "@/lib/auth";
 import { buildComplaintClusters } from "@/lib/cluster";
 import { CATEGORIES, DISTRICTS, PRIORITIES, STATUSES } from "@/lib/constants";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -83,6 +84,7 @@ async function loadSummary(): Promise<{ summary: AnalyticsSummary | null; error:
 }
 
 export default async function AdminAnalyticsPage() {
+  await requireAdminUser();
   const { summary, error } = await loadSummary();
 
   return (

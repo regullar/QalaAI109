@@ -1,6 +1,7 @@
 import { ComplaintTable } from "@/components/admin/ComplaintTable";
 import { LocalizedText } from "@/components/i18n/LocalizedText";
 import { LocalizedValue } from "@/components/i18n/LocalizedValue";
+import { requireAdminUser } from "@/lib/auth";
 import { buildComplaintClusters, getClusterKey } from "@/lib/cluster";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { Complaint, StatusLog } from "@/types/complaint";
@@ -81,6 +82,7 @@ async function loadAdminData(): Promise<{
 }
 
 export default async function AdminPage() {
+  await requireAdminUser();
   const { complaints, logsByComplaintId, error } = await loadAdminData();
 
   return (
