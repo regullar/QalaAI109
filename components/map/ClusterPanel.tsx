@@ -41,88 +41,86 @@ export function ClusterPanel({ clusters, selectedClusterKey, onSelect }: Cluster
 
   return (
     <Card asChild>
-      <aside className="soft-card min-w-0 max-w-full rounded-[var(--radius)] p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-app-text">{t("map.hotZones")}</h2>
-        <span className="rounded-full bg-app-surfaceStrong px-2.5 py-1 text-xs font-semibold text-app-text">
-          {hotClusters.length}
-        </span>
-      </div>
+      <aside className="soft-card min-w-0 max-w-full rounded-[var(--radius)] p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="min-w-0 text-base font-bold leading-6 text-app-text">{t("map.hotZones")}</h2>
+          <span className="shrink-0 rounded-full bg-app-surfaceStrong px-2.5 py-1 text-xs font-semibold text-app-text">
+            {hotClusters.length}
+          </span>
+        </div>
 
-      {hotClusters.length === 0 ? (
-        <p className="mt-3 text-sm text-app-textMuted">{t("map.noHotZones")}</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {hotClusters.map((cluster) => {
-            const selected = selectedClusterKey === cluster.key;
+        {hotClusters.length === 0 ? (
+          <p className="mt-3 text-sm leading-6 text-app-textMuted">{t("map.noHotZones")}</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {hotClusters.map((cluster) => {
+              const selected = selectedClusterKey === cluster.key;
 
-            return (
-              <li key={cluster.key}>
-                <Button
-                  variant="unstyled"
-                  size="unstyled"
-                  type="button"
-                  onClick={() => onSelect(cluster.key)}
-                  className={`w-full rounded-[var(--radius)] border px-4 py-3 text-left transition active:scale-[0.99] ${
-                    selected
-                      ? "border-app-dark bg-app-dark text-white"
-                      : "border-app-border bg-app-surfaceMuted"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
+              return (
+                <li key={cluster.key} className="min-w-0">
+                  <Button
+                    variant="unstyled"
+                    size="unstyled"
+                    type="button"
+                    onClick={() => onSelect(cluster.key)}
+                    className={`flex w-full min-w-0 flex-col items-stretch justify-start whitespace-normal rounded-[var(--radius)] border p-3 text-left transition active:scale-[0.99] sm:p-4 ${
+                      selected
+                        ? "border-app-dark bg-app-dark text-white"
+                        : "border-app-border bg-app-surfaceMuted"
+                    }`}
+                  >
                     <div className="min-w-0">
-                      <p className={`text-sm font-semibold ${selected ? "text-white" : "text-app-text"}`}>
+                      <p className={`break-words text-sm font-semibold leading-5 ${selected ? "text-white" : "text-app-text"}`}>
                         {formatDistrict(cluster.district, language)} | {formatCategory(cluster.category, language)}
                       </p>
-                      <p className={`mt-1 text-xs ${selected ? "text-slate-300" : "text-app-textMuted"}`}>
+                      <p className={`mt-1.5 break-words text-xs leading-5 ${selected ? "text-slate-300" : "text-app-textMuted"}`}>
                         {cluster.addressText || t("common.addressMissing")}
                       </p>
                     </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                        selected ? "border-white/15 bg-white/10 text-white" : getClusterTone(cluster.importanceScore)
-                      }`}
-                    >
-                      {cluster.importanceScore}
-                    </span>
-                  </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span
-                      className={`rounded-full border px-2.5 py-1 ${
-                        selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
-                      }`}
-                    >
-                      {t("map.count")}: {cluster.count}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 ${
-                        selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
-                      }`}
-                    >
-                      {openLabel}: {cluster.openCount}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 ${
-                        selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
-                      }`}
-                    >
-                      {t("common.priority")}: {t(PRIORITY_TRANSLATION_KEYS[cluster.priority as ComplaintPriority])}
-                    </span>
-                  </div>
+                    <div className="mt-3 flex min-w-0 flex-wrap gap-2 text-xs leading-none">
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-1.5 font-semibold ${
+                          selected ? "border-white/15 bg-white/10 text-white" : getClusterTone(cluster.importanceScore)
+                        }`}
+                      >
+                        {cluster.importanceScore}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-1.5 ${
+                          selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
+                        }`}
+                      >
+                        {t("map.count")}: {cluster.count}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-1.5 ${
+                          selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
+                        }`}
+                      >
+                        {openLabel}: {cluster.openCount}
+                      </span>
+                      <span
+                        className={`min-w-0 break-words rounded-full border px-2.5 py-1.5 leading-4 ${
+                          selected ? "border-white/15 bg-white/10 text-slate-100" : "border-app-border bg-white text-app-textMuted"
+                        }`}
+                      >
+                        {t("common.priority")}: {t(PRIORITY_TRANSLATION_KEYS[cluster.priority as ComplaintPriority])}
+                      </span>
+                    </div>
 
-                  <div className="mt-3 h-2 rounded-full bg-app-surfaceStrong">
-                    <div
-                      className={`h-full rounded-full ${selected ? "bg-white/90" : "bg-slate-900"}`}
-                      style={{ width: `${Math.max(8, cluster.importanceScore)}%` }}
-                    />
-                  </div>
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-app-surfaceStrong">
+                      <div
+                        className={`h-full rounded-full ${selected ? "bg-white/90" : "bg-slate-900"}`}
+                        style={{ width: `${Math.max(8, cluster.importanceScore)}%` }}
+                      />
+                    </div>
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </aside>
     </Card>
   );

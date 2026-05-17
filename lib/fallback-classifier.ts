@@ -11,9 +11,23 @@ function includesAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
+function createFallbackProblemText(text: string) {
+  const cleaned = text
+    .replace(/\s+/g, " ")
+    .replace(/^[-–—•\s]+/, "")
+    .trim();
+
+  if (!cleaned) return "Требуется ручная проверка городского обращения.";
+
+  const firstSentence = cleaned.match(/^.{1,180}?(?:[.!?]|$)/)?.[0]?.trim() || cleaned.slice(0, 180).trim();
+  const normalizedEnd = /[.!?]$/.test(firstSentence) ? firstSentence : `${firstSentence}.`;
+  return `Житель сообщает: ${normalizedEnd}`;
+}
+
 function createBaseResponse(context: ClassifierContext): AnalyzeComplaintResponse {
   const district = context.district?.trim() || "Не определен";
   const addressText = context.addressText?.trim() || "";
+  const problemText = createFallbackProblemText(context.text);
 
   return {
     title: "Городское обращение",
@@ -23,9 +37,9 @@ function createBaseResponse(context: ClassifierContext): AnalyzeComplaintRespons
     priority: "low",
     addressText,
     riskFactors: [],
-    summary: "Обращение классифицировано резервными правилами без AI API.",
+    summary: problemText,
     responsibleService: "Общая городская служба",
-    appealText: "Прошу рассмотреть обращение и передать его ответственной городской службе.",
+    appealText: `Прошу рассмотреть обращение и передать его ответственной городской службе. ${problemText}`,
     needsEmergencyWarning: false,
     confidence: 0.62,
     source: "fallback"
@@ -57,7 +71,7 @@ function finalize(
   response.subcategory = subcategory;
   response.needsEmergencyWarning = needsEmergencyWarning;
   response.confidence = confidence;
-  response.appealText = `Прошу проверить и устранить проблему: ${title}.`;
+  response.appealText = `Прошу проверить и устранить проблему: ${title === "Городское обращение" ? summary : title}.`;
 }
 
 export function fallbackClassify(
@@ -253,7 +267,7 @@ export function fallbackClassify(
     "Другое",
     "low",
     "Городское обращение",
-    "Обращение требует ручной проверки оператором.",
+    createFallbackProblemText(text),
     "Общая городская служба",
     [],
     "Общее обращение",
